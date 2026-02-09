@@ -135,7 +135,7 @@ export default function MyProfileScreen() {
                         <Svg height="100%" width="100%" viewBox="0 0 1340 320" style={styles.svgCurve}>
                             <Path
                                 fill="#FDFDFD"
-                                d="M0,80 Q720,320 1440,80 L1440,320 L0,320 Z"
+                                d="M0,80 Q720,300 1440,80 L1440,400 L0,400 Z"
                             />
                         </Svg>
                     </View>
