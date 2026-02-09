@@ -35,7 +35,7 @@ export default function ChatScreen() {
                 .from('messages')
                 .select('*')
                 .eq('chat_id', chatId)
-                .order('created_at', { ascending: true });
+                .order('created_at', { ascending: false }); // Order descending for inverted list
 
             if (error) throw error;
             setMessages(data || []);
@@ -58,7 +58,11 @@ export default function ChatScreen() {
                     filter: `chat_id=eq.${chatId}`,
                 },
                 (payload) => {
-                    setMessages((prev) => [...prev, payload.new]);
+                    // Only add if not already in list (to avoid duplicate from optimistic update)
+                    setMessages((prev) => {
+                        if (prev.some(m => m.id === payload.new.id)) return prev;
+                        return [payload.new, ...prev]; // Add to start for inverted list
+                    });
                 }
             )
             .subscribe();
@@ -70,20 +74,38 @@ export default function ChatScreen() {
         const content = text.trim();
         setText('');
 
+        // Optimistic Update
+        const optimisticMessage = {
+            id: `temp-${Date.now()}`,
+            chat_id: chatId,
+            sender_id: currentUser.id,
+            content: content,
+            created_at: new Date().toISOString(),
+            pending: true
+        };
+
+        setMessages(prev => [optimisticMessage, ...prev]);
+
         try {
-            const { error } = await supabase
+            const { data, error } = await supabase
                 .from('messages')
                 .insert({
                     chat_id: chatId,
                     sender_id: currentUser.id,
                     content: content,
-                    type: 'text' // Assuming 'type' column exists based on schema inspection
-                });
+                    type: 'text'
+                })
+                .select()
+                .single();
 
             if (error) throw error;
+
+            // Replace optimistic message with real one
+            setMessages(prev => prev.map(m => m.id === optimisticMessage.id ? data : m));
+
         } catch (error) {
             console.error('Error sending message:', error);
-            // Optionally restore text to input
+            // Ideally notify user and allow retry
         }
     };
 
@@ -92,51 +114,60 @@ export default function ChatScreen() {
     }
 
     return (
-        <KeyboardAvoidingView
-            style={styles.container}
-            behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-            keyboardVerticalOffset={Platform.OS === 'ios' ? 90 : 0}
-        >
-            <View style={styles.header}>
-                <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
-                    <Text style={styles.backButtonText}>Back</Text>
-                </TouchableOpacity>
-                <Text style={styles.headerTitle}>{otherUserName || 'Chat'}</Text>
-            </View>
+        <View style={{ flex: 1, backgroundColor: 'white' }}>
+            <KeyboardAvoidingView
+                style={styles.container}
+                behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+                keyboardVerticalOffset={Platform.OS === 'ios' ? 90 : 0}
+            >
+                <View style={styles.header}>
+                    <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
+                        <Text style={styles.backButtonText}>Back</Text>
+                    </TouchableOpacity>
+                    <Text style={styles.headerTitle}>{otherUserName || 'Chat'}</Text>
+                </View>
 
-            <FlatList
-                data={messages}
-                keyExtractor={(item) => item.id}
-                renderItem={({ item }) => {
-                    const isMe = item.sender_id === currentUser?.id;
-                    return (
-                        <View style={[styles.messageBubble, isMe ? styles.myMessage : styles.theirMessage]}>
-                            <Text style={isMe ? styles.myMessageText : styles.theirMessageText}>{item.content}</Text>
-                        </View>
-                    );
-                }}
-                contentContainerStyle={styles.listContent}
-            />
-
-            <View style={styles.inputContainer}>
-                <TextInput
-                    style={styles.input}
-                    value={text}
-                    onChangeText={setText}
-                    placeholder="Type a message..."
+                <FlatList
+                    data={messages}
+                    inverted // Scroll from bottom up
+                    keyExtractor={(item) => item.id}
+                    renderItem={({ item }) => {
+                        const isMe = item.sender_id === currentUser?.id;
+                        return (
+                            <View style={[
+                                styles.messageBubble,
+                                isMe ? styles.myMessage : styles.theirMessage,
+                                item.pending && { opacity: 0.7 }
+                            ]}>
+                                <Text style={isMe ? styles.myMessageText : styles.theirMessageText}>{item.content}</Text>
+                            </View>
+                        );
+                    }}
+                    contentContainerStyle={styles.listContent}
                 />
-                <TouchableOpacity onPress={sendMessage} style={styles.sendButton}>
-                    <Text style={styles.sendButtonText}>Send</Text>
-                </TouchableOpacity>
-            </View>
-        </KeyboardAvoidingView>
+
+                <View style={styles.inputContainer}>
+                    <TextInput
+                        style={styles.input}
+                        value={text}
+                        onChangeText={setText}
+                        placeholder="Type a message..."
+                        returnKeyType="send"
+                        onSubmitEditing={sendMessage}
+                    />
+                    <TouchableOpacity onPress={sendMessage} style={styles.sendButton}>
+                        <Text style={styles.sendButtonText}>Send</Text>
+                    </TouchableOpacity>
+                </View>
+            </KeyboardAvoidingView>
+        </View>
     );
 }
 
 const styles = StyleSheet.create({
-    container: { flex: 1, backgroundColor: '#fff', paddingTop: 50 },
+    container: { flex: 1, backgroundColor: '#fff' },
     center: { flex: 1, justifyContent: 'center', alignItems: 'center' },
-    header: { flexDirection: 'row', alignItems: 'center', padding: 15, borderBottomWidth: 1, borderBottomColor: '#eee' },
+    header: { flexDirection: 'row', alignItems: 'center', padding: 15, borderBottomWidth: 1, borderBottomColor: '#eee', paddingTop: 50 },
     backButton: { marginRight: 15 },
     backButtonText: { color: '#007AFF', fontSize: 16 },
     headerTitle: { fontSize: 18, fontWeight: 'bold' },
@@ -146,7 +177,7 @@ const styles = StyleSheet.create({
     theirMessage: { alignSelf: 'flex-start', backgroundColor: '#E5E5EA' },
     myMessageText: { color: '#fff' },
     theirMessageText: { color: '#000' },
-    inputContainer: { flexDirection: 'row', padding: 10, borderTopWidth: 1, borderTopColor: '#eee', alignItems: 'center' },
+    inputContainer: { flexDirection: 'row', padding: 10, borderTopWidth: 1, borderTopColor: '#eee', alignItems: 'center', backgroundColor: 'white' },
     input: { flex: 1, borderWidth: 1, borderColor: '#ddd', borderRadius: 20, paddingHorizontal: 15, paddingVertical: 10, marginRight: 10 },
     sendButton: { padding: 10 },
     sendButtonText: { color: '#007AFF', fontWeight: 'bold' },

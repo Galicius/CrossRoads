@@ -1,4 +1,5 @@
 import React, { useRef, useState, useEffect } from 'react';
+import { useNavigation } from '@react-navigation/native';
 import { View, StyleSheet, Dimensions, Text, TouchableOpacity, Alert, ActivityIndicator } from 'react-native';
 import Swiper from 'react-native-deck-swiper';
 import { SwipeableCard } from '../../components/dating/SwipeableCard';
@@ -20,6 +21,7 @@ const generatePath = (startLat: number, startLon: number, steps: number) => {
 };
 
 export default function DatingDiscoverScreen() {
+    const navigation = useNavigation<any>();
     const swiperRef = useRef<Swiper<any>>(null);
     const [profiles, setProfiles] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
