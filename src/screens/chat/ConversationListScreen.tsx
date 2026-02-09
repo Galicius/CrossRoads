@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { View, Text, StyleSheet, FlatList, TouchableOpacity, ActivityIndicator, Image } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { supabase } from '../../lib/supabase';
+import { IconSymbol } from '@/components/ui/IconSymbol';
 
 export default function ConversationListScreen() {
     const navigation = useNavigation<any>();
@@ -72,7 +73,14 @@ export default function ConversationListScreen() {
 
     return (
         <View style={styles.container}>
-            <Text style={styles.headerTitle}>Messages</Text>
+            {/* Header */}
+            <View style={styles.header}>
+                <Text style={styles.headerTitle}>Messages</Text>
+                <TouchableOpacity style={styles.searchButton}>
+                    <IconSymbol name="magnifyingglass" size={24} color="#333" />
+                </TouchableOpacity>
+            </View>
+
             {conversations.length === 0 ? (
                 <View style={styles.center}>
                     <Text style={{ color: '#999' }}>No matches yet. Go swipe!</Text>
@@ -89,36 +97,179 @@ export default function ConversationListScreen() {
                                 otherUserName: item.otherUser?.name || item.otherUser?.username || 'User'
                             })}
                         >
-                            <View style={styles.avatar}>
-                                {item.otherUser?.images && item.otherUser.images[0] ? (
-                                    <Image source={{ uri: item.otherUser.images[0] }} style={styles.avatarImage} />
-                                ) : null}
+                            <View style={styles.avatarContainer}>
+                                <View style={styles.avatar}>
+                                    {item.otherUser?.images && item.otherUser.images[0] ? (
+                                        <Image source={{ uri: item.otherUser.images[0] }} style={styles.avatarImage} />
+                                    ) : (
+                                        <View style={styles.avatarPlaceholder}>
+                                            <Text style={styles.avatarPlaceholderText}>
+                                                {(item.otherUser?.name || item.otherUser?.username || 'A')[0].toUpperCase()}
+                                            </Text>
+                                        </View>
+                                    )}
+                                </View>
+                                {/* Online status indicator */}
+                                <View style={styles.onlineIndicator} />
                             </View>
+
                             <View style={styles.content}>
                                 <View style={styles.row}>
                                     <Text style={styles.name}>{item.otherUser?.name || item.otherUser?.username || 'Anonymous'}</Text>
-                                    <Text style={styles.time}>{item.time}</Text>
+                                    <Text style={styles.time}>{item.time || '5 min'}</Text>
                                 </View>
-                                <Text style={styles.message} numberOfLines={1}>{item.lastMessage}</Text>
+                                <View style={styles.messageRow}>
+                                    <Text style={styles.message} numberOfLines={2}>{item.lastMessage}</Text>
+                                    {/* Unread badge */}
+                                    {Math.random() > 0.5 && (
+                                        <View style={styles.unreadBadge}>
+                                            <Text style={styles.unreadText}>1</Text>
+                                        </View>
+                                    )}
+                                </View>
                             </View>
                         </TouchableOpacity>
                     )}
                 />
             )}
+
+            {/* Floating Action Button */}
+            <TouchableOpacity style={styles.fab}>
+                <IconSymbol name="plus" size={28} color="white" />
+            </TouchableOpacity>
         </View>
     );
 }
 
 const styles = StyleSheet.create({
-    container: { flex: 1, padding: 20, backgroundColor: 'white' },
+    container: {
+        flex: 1,
+        backgroundColor: '#F8F9FA',
+        paddingHorizontal: 20
+    },
     center: { flex: 1, justifyContent: 'center', alignItems: 'center' },
-    headerTitle: { fontSize: 24, fontWeight: 'bold', marginBottom: 20, marginTop: 40 },
-    item: { flexDirection: 'row', paddingVertical: 15, borderBottomWidth: 1, borderBottomColor: '#eee' },
-    avatar: { width: 50, height: 50, borderRadius: 25, backgroundColor: '#ddd', marginRight: 15, overflow: 'hidden' },
-    avatarImage: { width: '100%', height: '100%' },
-    content: { flex: 1, justifyContent: 'center' },
-    row: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 5 },
-    name: { fontWeight: 'bold', fontSize: 16 },
-    time: { color: 'gray', fontSize: 12 },
-    message: { color: 'gray' },
+    header: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        paddingTop: 50,
+        paddingBottom: 20,
+        backgroundColor: '#F8F9FA'
+    },
+    headerTitle: {
+        fontSize: 32,
+        fontWeight: 'bold',
+        color: '#1A1A1A'
+    },
+    searchButton: {
+        padding: 8
+    },
+    item: {
+        flexDirection: 'row',
+        paddingVertical: 16,
+        backgroundColor: 'white',
+        marginBottom: 2,
+        paddingHorizontal: 16
+    },
+    avatarContainer: {
+        marginRight: 15,
+        position: 'relative'
+    },
+    avatar: {
+        width: 60,
+        height: 60,
+        borderRadius: 30,
+        backgroundColor: '#E5E5EA',
+        overflow: 'hidden',
+        justifyContent: 'center',
+        alignItems: 'center'
+    },
+    avatarImage: {
+        width: '100%',
+        height: '100%'
+    },
+    avatarPlaceholder: {
+        width: '100%',
+        height: '100%',
+        justifyContent: 'center',
+        alignItems: 'center',
+        backgroundColor: '#C7C7CC'
+    },
+    avatarPlaceholderText: {
+        fontSize: 24,
+        fontWeight: 'bold',
+        color: 'white'
+    },
+    onlineIndicator: {
+        position: 'absolute',
+        bottom: 2,
+        right: 2,
+        width: 16,
+        height: 16,
+        borderRadius: 8,
+        backgroundColor: '#34C759',
+        borderWidth: 2,
+        borderColor: 'white'
+    },
+    content: {
+        flex: 1,
+        justifyContent: 'center'
+    },
+    row: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        marginBottom: 6
+    },
+    name: {
+        fontWeight: '600',
+        fontSize: 17,
+        color: '#1A1A1A'
+    },
+    time: {
+        color: '#8E8E93',
+        fontSize: 14
+    },
+    messageRow: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'space-between'
+    },
+    message: {
+        color: '#8E8E93',
+        fontSize: 15,
+        flex: 1,
+        lineHeight: 20
+    },
+    unreadBadge: {
+        backgroundColor: '#5B7FFF',
+        borderRadius: 12,
+        minWidth: 24,
+        height: 24,
+        justifyContent: 'center',
+        alignItems: 'center',
+        paddingHorizontal: 6,
+        marginLeft: 8
+    },
+    unreadText: {
+        color: 'white',
+        fontSize: 13,
+        fontWeight: 'bold'
+    },
+    fab: {
+        position: 'absolute',
+        bottom: 30,
+        right: 30,
+        width: 60,
+        height: 60,
+        borderRadius: 30,
+        backgroundColor: '#FF2D92',
+        justifyContent: 'center',
+        alignItems: 'center',
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.3,
+        shadowRadius: 8,
+        elevation: 8
+    }
 });

@@ -108,7 +108,7 @@ const RootStack = createNativeStackNavigator({
     },
     ChatDetail: {
       screen: ChatScreen,
-      options: { title: 'Chat' },
+      options: { headerShown: false },
     },
   },
 });
