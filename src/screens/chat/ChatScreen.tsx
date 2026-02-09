@@ -1,7 +1,10 @@
 import React, { useEffect, useState, useRef } from 'react';
-import { View, Text, StyleSheet, TextInput, TouchableOpacity, FlatList, KeyboardAvoidingView, Platform, ActivityIndicator } from 'react-native';
+import { View, Text, StyleSheet, TextInput, TouchableOpacity, FlatList, KeyboardAvoidingView, Platform, ActivityIndicator, Image } from 'react-native';
 import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
 import { supabase } from '../../lib/supabase';
+import { IconSymbol } from '@/components/ui/IconSymbol';
+
+
 
 type ChatScreenRouteProp = RouteProp<{ ChatDetail: { chatId: string; otherUserName: string } }, 'ChatDetail'>;
 
@@ -114,50 +117,98 @@ export default function ChatScreen() {
     }
 
     return (
-        <View style={{ flex: 1, backgroundColor: 'white' }}>
+        <View style={{ flex: 1, backgroundColor: '#fff' }}>
             <KeyboardAvoidingView
                 style={styles.container}
-                behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-                keyboardVerticalOffset={Platform.OS === 'ios' ? 90 : 0}
+                behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+                keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 0}
             >
+                {/* Header */}
                 <View style={styles.header}>
-                    <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
-                        <Text style={styles.backButtonText}>Back</Text>
+                    <View style={styles.headerCenter}>
+                        <View style={styles.headerAvatar}>
+                            <Image
+                                source={{ uri: 'https://images.unsplash.com/photo-1570295999919-56ceb5ecca61?ixlib=rb-1.2.1&auto=format&fit=crop&w=500&q=80' }}
+                                style={styles.headerAvatarImage}
+                            />
+                        </View>
+                        <Text style={styles.headerTitle}>{otherUserName || 'Chat'}</Text>
+                    </View>
+                    <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backToListButton}>
+                        <IconSymbol name="xmark" size={24} color="#333" />
                     </TouchableOpacity>
-                    <Text style={styles.headerTitle}>{otherUserName || 'Chat'}</Text>
                 </View>
 
-                <FlatList
-                    data={messages}
-                    inverted // Scroll from bottom up
-                    keyExtractor={(item) => item.id}
-                    renderItem={({ item }) => {
-                        const isMe = item.sender_id === currentUser?.id;
-                        return (
-                            <View style={[
-                                styles.messageBubble,
-                                isMe ? styles.myMessage : styles.theirMessage,
-                                item.pending && { opacity: 0.7 }
-                            ]}>
-                                <Text style={isMe ? styles.myMessageText : styles.theirMessageText}>{item.content}</Text>
-                            </View>
-                        );
-                    }}
-                    contentContainerStyle={styles.listContent}
-                />
+                {/* Messages Area with white background */}
+                <View style={styles.messagesArea}>
+                    {/* Messages List */}
+                    <FlatList
+                        data={messages}
+                        inverted
+                        keyExtractor={(item) => item.id}
+                        renderItem={({ item, index }) => {
+                            const isMe = item.sender_id === currentUser?.id;
+                            const showDate = index === messages.length - 1 ||
+                                (messages[index + 1] &&
+                                    new Date(item.created_at).toDateString() !== new Date(messages[index + 1].created_at).toDateString());
 
-                <View style={styles.inputContainer}>
-                    <TextInput
-                        style={styles.input}
-                        value={text}
-                        onChangeText={setText}
-                        placeholder="Type a message..."
-                        returnKeyType="send"
-                        onSubmitEditing={sendMessage}
+                            const time = new Date(item.created_at).toLocaleTimeString('en-US', {
+                                hour: 'numeric',
+                                minute: '2-digit',
+                                hour12: true
+                            });
+
+                            return (
+                                <View>
+                                    {showDate && (
+                                        <View style={styles.dateSeparator}>
+                                            <Text style={styles.dateText}>Today</Text>
+                                        </View>
+                                    )}
+                                    <View style={[
+                                        styles.messageContainer,
+                                        isMe ? styles.myMessageContainer : styles.theirMessageContainer
+                                    ]}>
+                                        <View style={[
+                                            styles.messageBubble,
+                                            isMe ? styles.myMessage : styles.theirMessage,
+                                            item.pending && { opacity: 0.7 }
+                                        ]}>
+                                            <Text style={isMe ? styles.myMessageText : styles.theirMessageText}>
+                                                {item.content}
+                                            </Text>
+                                        </View>
+                                        <Text style={[styles.timestamp, isMe && styles.myTimestamp]}>
+                                            {time}
+                                        </Text>
+                                    </View>
+                                </View>
+                            );
+                        }}
+                        contentContainerStyle={styles.listContent}
                     />
-                    <TouchableOpacity onPress={sendMessage} style={styles.sendButton}>
-                        <Text style={styles.sendButtonText}>Send</Text>
+                </View>
+
+                {/* Input Container */}
+                <View style={styles.inputContainer}>
+                    <TouchableOpacity style={styles.addButton}>
+                        <IconSymbol name="plus.circle.fill" size={36} color="#5B7FFF" />
                     </TouchableOpacity>
+                    <View style={styles.inputWrapper}>
+                        <TextInput
+                            style={styles.input}
+                            value={text}
+                            onChangeText={setText}
+                            placeholder="Message..."
+                            placeholderTextColor="#8E8E93"
+                            returnKeyType="send"
+                            onSubmitEditing={sendMessage}
+                            multiline
+                        />
+                        <TouchableOpacity style={styles.emojiButton}>
+                            <IconSymbol name="face.smiling" size={24} color="#8E8E93" />
+                        </TouchableOpacity>
+                    </View>
                 </View>
             </KeyboardAvoidingView>
         </View>
@@ -165,20 +216,151 @@ export default function ChatScreen() {
 }
 
 const styles = StyleSheet.create({
-    container: { flex: 1, backgroundColor: '#fff' },
-    center: { flex: 1, justifyContent: 'center', alignItems: 'center' },
-    header: { flexDirection: 'row', alignItems: 'center', padding: 15, borderBottomWidth: 1, borderBottomColor: '#eee', paddingTop: 50 },
-    backButton: { marginRight: 15 },
-    backButtonText: { color: '#007AFF', fontSize: 16 },
-    headerTitle: { fontSize: 18, fontWeight: 'bold' },
-    listContent: { padding: 15 },
-    messageBubble: { padding: 10, borderRadius: 15, marginBottom: 10, maxWidth: '80%' },
-    myMessage: { alignSelf: 'flex-end', backgroundColor: '#007AFF' },
-    theirMessage: { alignSelf: 'flex-start', backgroundColor: '#E5E5EA' },
-    myMessageText: { color: '#fff' },
-    theirMessageText: { color: '#000' },
-    inputContainer: { flexDirection: 'row', padding: 10, borderTopWidth: 1, borderTopColor: '#eee', alignItems: 'center', backgroundColor: 'white' },
-    input: { flex: 1, borderWidth: 1, borderColor: '#ddd', borderRadius: 20, paddingHorizontal: 15, paddingVertical: 10, marginRight: 10 },
+    container: {
+        flex: 1,
+        backgroundColor: '#d4cbebff'
+    },
+    center: {
+        flex: 1,
+        justifyContent: 'center',
+        alignItems: 'center'
+    },
+    header: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        paddingHorizontal: 20,
+        paddingTop: 50,
+        paddingBottom: 20,
+        backgroundColor: '#d4cbebff'
+    },
+    headerCenter: {
+        flex: 1,
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'flex-start',
+        gap: 12
+    },
+    backToListButton: {
+        padding: 4
+    },
+    messagesArea: {
+        flex: 1,
+        backgroundColor: 'white',
+        borderTopLeftRadius: 30,
+        borderTopRightRadius: 30,
+        overflow: 'hidden'
+    },
+    headerAvatar: {
+        width: 36,
+        height: 36,
+        borderRadius: 18,
+        overflow: 'hidden',
+        backgroundColor: '#E5E5EA'
+    },
+    headerAvatarImage: {
+        width: '100%',
+        height: '100%'
+    },
+    headerTitle: {
+        fontSize: 18,
+        fontWeight: '600',
+        color: '#1A1A1A'
+    },
+    listContent: {
+        paddingHorizontal: 20,
+        paddingTop: 15,
+        paddingBottom: 10
+    },
+    dateSeparator: {
+        alignItems: 'center',
+        marginVertical: 15
+    },
+    dateText: {
+        backgroundColor: '#D1D5DB',
+        color: '#6B7280',
+        fontSize: 13,
+        fontWeight: '500',
+        paddingHorizontal: 12,
+        paddingVertical: 4,
+        borderRadius: 12
+    },
+    messageContainer: {
+        marginBottom: 8,
+        maxWidth: '75%'
+    },
+    myMessageContainer: {
+        alignSelf: 'flex-end',
+        alignItems: 'flex-end'
+    },
+    theirMessageContainer: {
+        alignSelf: 'flex-start',
+        alignItems: 'flex-start'
+    },
+    messageBubble: {
+        paddingHorizontal: 16,
+        paddingVertical: 12,
+        borderRadius: 20,
+        marginBottom: 4
+    },
+    myMessage: {
+        backgroundColor: '#C7B3E5',
+        borderTopRightRadius: 4
+    },
+    theirMessage: {
+        backgroundColor: '#F0F0F0',
+        borderTopLeftRadius: 4
+    },
+    myMessageText: {
+        color: '#fff',
+        fontSize: 15,
+        lineHeight: 20
+    },
+    theirMessageText: {
+        color: '#1A1A1A',
+        fontSize: 15,
+        lineHeight: 20
+    },
+    timestamp: {
+        fontSize: 12,
+        color: '#8E8E93',
+        marginBottom: 8
+    },
+    myTimestamp: {
+        textAlign: 'right'
+    },
+    inputContainer: {
+        flexDirection: 'row',
+        paddingHorizontal: 15,
+        paddingVertical: 12,
+        alignItems: 'flex-end',
+        backgroundColor: 'white'
+    },
+    addButton: {
+        marginRight: 10,
+        marginBottom: 2
+    },
+    inputWrapper: {
+        flex: 1,
+        flexDirection: 'row',
+        alignItems: 'center',
+        backgroundColor: '#F0F0F0',
+        borderRadius: 30,
+        paddingHorizontal: 15,
+        paddingVertical: 12,
+        maxHeight: 100
+    },
+    input: {
+        flex: 1,
+        fontSize: 15,
+        color: '#1A1A1A',
+        paddingVertical: 6,
+        maxHeight: 80
+    },
+    emojiButton: {
+        marginLeft: 8,
+        padding: 4
+    },
     sendButton: { padding: 10 },
     sendButtonText: { color: '#007AFF', fontWeight: 'bold' },
 });
