@@ -132,10 +132,10 @@ export default function MyProfileScreen() {
 
                     {/* SVG Curve Mask Overlay */}
                     <View style={styles.curveContainer}>
-                        <Svg height="100%" width="100%" viewBox="0 0 1440 320" style={styles.svgCurve}>
+                        <Svg height="100%" width="100%" viewBox="0 0 1340 320" style={styles.svgCurve}>
                             <Path
-                                fill="#fff"
-                                d="M0,190L80,186.7C160,183,320,177,480,186.7C640,197,800,223,960,229.3C1120,235,1280,224,1360,218.7L1440,213L1440,320L1360,320C1280,320,1120,320,960,320C800,320,640,320,480,320C320,320,160,320,80,320L0,320Z"
+                                fill="#FDFDFD"
+                                d="M0,80 Q720,320 1440,80 L1440,320 L0,320 Z"
                             />
                         </Svg>
                     </View>
@@ -231,12 +231,12 @@ const styles = StyleSheet.create({
 
     avatarContainer: {
         position: 'absolute',
-        bottom: 10,
+        bottom: 1,
         alignSelf: 'center',
-        width: 130,
-        height: 130,
-        borderRadius: 65,
-        backgroundColor: 'white',
+        width: 190,
+        height: 190,
+        borderRadius: 190,
+        backgroundColor: 'FDFDFD',
         padding: 4,
         elevation: 10,
         shadowColor: "#000",
@@ -251,15 +251,15 @@ const styles = StyleSheet.create({
     avatar: {
         width: '100%',
         height: '100%',
-        borderRadius: 65,
+        borderRadius: 100,
     },
     editIcon: {
         position: 'absolute',
         bottom: 0,
-        right: 0,
+        right: 18,
         backgroundColor: 'white',
-        width: 32,
-        height: 32,
+        width: 35,
+        height: 35,
         borderRadius: 16,
         alignItems: 'center',
         justifyContent: 'center',
