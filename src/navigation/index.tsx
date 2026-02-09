@@ -3,8 +3,15 @@ import { createStaticNavigation, StaticParamList } from '@react-navigation/nativ
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { Platform } from 'react-native';
 
-import { Explore } from './screens/Explore';
-import { Home } from './screens/Home';
+// Screens
+import LandingScreen from '../screens/auth/LandingScreen';
+import InviteCodeScreen from '../screens/auth/InviteCodeScreen';
+import AuthScreen from '../screens/auth/AuthScreen';
+import MyProfileScreen from '../screens/profile/MyProfileScreen';
+import SocialFeedScreen from '../screens/social/SocialFeedScreen';
+import DatingDiscoverScreen from '../screens/dating/DatingDiscoverScreen';
+import BuilderDirectoryScreen from '../screens/builders/BuilderDirectoryScreen';
+import ConversationListScreen from '../screens/chat/ConversationListScreen';
 import { NotFound } from './screens/NotFound';
 
 import { HapticTab } from '@/components/HapticTab';
@@ -13,18 +20,44 @@ import TabBarBackground from '@/components/ui/TabBarBackground';
 
 const HomeTabs = createBottomTabNavigator({
   screens: {
-    Home: {
-      screen: Home,
+    MyProfile: {
+      screen: MyProfileScreen,
       options: {
+        title: 'Profile',
         headerShown: false,
-        tabBarIcon: ({ color }) => <IconSymbol size={28} name="house.fill" color={color} />,
+        tabBarIcon: ({ color }) => <IconSymbol size={28} name="person.circle.fill" color={color} />,
       },
     },
-    Explore: {
-      screen: Explore,
+    Social: {
+      screen: SocialFeedScreen,
       options: {
+        title: 'Social',
         headerShown: false,
-        tabBarIcon: ({ color }) => <IconSymbol size={28} name="paperplane.fill" color={color} />,
+        tabBarIcon: ({ color }) => <IconSymbol size={28} name="map.fill" color={color} />,
+      },
+    },
+    Dating: {
+      screen: DatingDiscoverScreen,
+      options: {
+        title: 'Dating',
+        headerShown: false,
+        tabBarIcon: ({ color }) => <IconSymbol size={28} name="heart.fill" color={color} />,
+      },
+    },
+    Builders: {
+      screen: BuilderDirectoryScreen,
+      options: {
+        title: 'Builders',
+        headerShown: false,
+        tabBarIcon: ({ color }) => <IconSymbol size={28} name="hammer.fill" color={color} />,
+      },
+    },
+    Chat: {
+      screen: ConversationListScreen,
+      options: {
+        title: 'Chat',
+        headerShown: false,
+        tabBarIcon: ({ color }) => <IconSymbol size={28} name="bubble.left.fill" color={color} />,
       },
     },
   },
@@ -34,30 +67,43 @@ const HomeTabs = createBottomTabNavigator({
     tabBarBackground: TabBarBackground,
     tabBarStyle: Platform.select({
       ios: {
-        // Use a transparent background on iOS to show the blur effect
-        possition: 'absolute',
+        position: 'absolute' as const,
       },
       default: {},
     }),
   },
 });
 
+import OnboardingStack from '../screens/onboarding/OnboardingStack';
+
+// ... imports
+
 const RootStack = createNativeStackNavigator({
   screens: {
+    Landing: {
+      screen: LandingScreen,
+      options: { headerShown: false },
+    },
+    InviteCode: {
+      screen: InviteCodeScreen,
+      options: { title: 'Have an invite?' },
+    },
+    Auth: {
+      screen: AuthScreen,
+      options: { title: 'Login' },
+    },
+    Onboarding: {
+      screen: OnboardingStack,
+      options: { headerShown: false },
+    },
     HomeTabs: {
       screen: HomeTabs,
-      options: {
-        headerShown: false,
-      },
+      options: { headerShown: false },
     },
     NotFound: {
       screen: NotFound,
-      options: {
-        title: '404',
-      },
-      linking: {
-        path: '*',
-      },
+      options: { title: '404' },
+      linking: { path: '*' },
     },
   },
 });
@@ -68,6 +114,6 @@ type RootStackParamList = StaticParamList<typeof RootStack>;
 
 declare global {
   namespace ReactNavigation {
-    interface RootParamList extends RootStackParamList {}
+    interface RootParamList extends RootStackParamList { }
   }
 }
