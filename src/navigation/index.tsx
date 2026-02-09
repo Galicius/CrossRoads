@@ -10,9 +10,9 @@ import AuthScreen from '../screens/auth/AuthScreen';
 import MyProfileScreen from '../screens/profile/MyProfileScreen';
 import SocialFeedScreen from '../screens/social/SocialFeedScreen';
 import DatingDiscoverScreen from '../screens/dating/DatingDiscoverScreen';
-import BuilderDirectoryScreen from '../screens/builders/BuilderDirectoryScreen';
 import ConversationListScreen from '../screens/chat/ConversationListScreen';
 import ChatScreen from '../screens/chat/ChatScreen';
+import BuildersStack from '../screens/builders/BuildersStack';
 import { NotFound } from './screens/NotFound';
 
 import { HapticTab } from '@/components/HapticTab';
@@ -46,7 +46,7 @@ const HomeTabs = createBottomTabNavigator({
       },
     },
     Builders: {
-      screen: BuilderDirectoryScreen,
+      screen: BuildersStack,
       options: {
         title: 'Builders',
         headerShown: false,

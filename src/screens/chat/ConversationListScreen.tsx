@@ -4,18 +4,19 @@ import { useNavigation } from '@react-navigation/native';
 import { supabase } from '../../lib/supabase';
 import { IconSymbol } from '@/components/ui/IconSymbol';
 
+type ChatType = 'dating' | 'builder';
+
 export default function ConversationListScreen() {
     const navigation = useNavigation<any>();
     const [conversations, setConversations] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
+    const [activeTab, setActiveTab] = useState<ChatType>('dating');
 
     useEffect(() => {
         loadConversations();
-
-        // Subscribe to new chats? For now just load on mount.
         const unsubscribe = navigation.addListener('focus', loadConversations);
         return unsubscribe;
-    }, [navigation]);
+    }, [navigation, activeTab]);
 
     const loadConversations = async () => {
         try {
@@ -26,12 +27,14 @@ export default function ConversationListScreen() {
             // 1. Get chats I belong to
             const { data: myChats, error: chatError } = await supabase
                 .from('chat_participants')
-                .select('chat_id')
+                .select('chat_id, chats(type)')
                 .eq('user_id', user.id);
 
             if (chatError) throw chatError;
 
-            const chatIds = myChats?.map(c => c.chat_id) || [];
+            // Filter by type
+            const filteredChats = myChats?.filter((c: any) => c.chats?.type === activeTab) || [];
+            const chatIds = filteredChats.map((c: any) => c.chat_id);
 
             if (chatIds.length === 0) {
                 setConversations([]);
@@ -40,11 +43,9 @@ export default function ConversationListScreen() {
             }
 
             // 2. Get the OTHER participants in these chats
-            // We want: chat_id, profile:profiles(*)
-            // Note: This assumes 1-on-1 chats mostly.
             const { data: participants, error: partError } = await supabase
                 .from('chat_participants')
-                .select('chat_id, profiles:user_id(*)') // select profiles info joined by user_id
+                .select('chat_id, profiles:user_id(*)')
                 .in('chat_id', chatIds)
                 .neq('user_id', user.id);
 
@@ -54,7 +55,7 @@ export default function ConversationListScreen() {
             const formatted = participants?.map((p: any) => ({
                 id: p.chat_id,
                 otherUser: p.profiles,
-                lastMessage: 'Chat now!', // Placeholder until message fetch implemented
+                lastMessage: 'Chat now!',
                 time: ''
             })) || [];
 
@@ -83,7 +84,9 @@ export default function ConversationListScreen() {
 
             {conversations.length === 0 ? (
                 <View style={styles.center}>
-                    <Text style={{ color: '#999' }}>No matches yet. Go swipe!</Text>
+                    <Text style={{ color: '#999' }}>
+                        {activeTab === 'dating' ? 'No matches yet. Go swipe!' : 'No builder chats yet.'}
+                    </Text>
                 </View>
             ) : (
                 <FlatList

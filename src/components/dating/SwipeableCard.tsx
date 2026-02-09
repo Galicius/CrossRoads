@@ -49,21 +49,11 @@ export const SwipeableCard: React.FC<SwipeableCardProps> = ({ profile, onPass, o
                     meetPoint={profile.meetPoint}
                     onExpand={toggleExpand}
                     isExpanded={isExpanded}
+                    profile={profile}
                 />
             </View>
 
-            <View style={styles.infoContainer}>
-                <View style={styles.header}>
-                    <Text style={styles.name}>{profile.name}, {profile.age}</Text>
-                    <Text style={styles.distance}>{profile.distance}</Text>
-                </View>
-                <Text style={styles.bio} numberOfLines={isExpanded ? 0 : 2}>{profile.bio}</Text>
-
-                {/* Only show actions if expanded or maybe always? 
-                     Usually in Tinder, actions are always visible below or overlaid. 
-                     If we are in "Deck" mode, the actions might be buttons outside the card or gestures.
-                     Let's keep them here for now as part of the card content.
-                 */}
+            {!isExpanded && (
                 <View style={styles.actions}>
                     <TouchableOpacity style={[styles.button, styles.pass]} onPress={onPass}>
                         <Text>Pass</Text>
@@ -72,7 +62,7 @@ export const SwipeableCard: React.FC<SwipeableCardProps> = ({ profile, onPass, o
                         <Text style={styles.likeText}>Connect</Text>
                     </TouchableOpacity>
                 </View>
-            </View>
+            )}
         </View>
     );
 };
@@ -98,7 +88,7 @@ const styles = StyleSheet.create({
         // height: height * 0.85, // Maybe grow a bit?
     },
     carouselContainer: {
-        flex: 4, // Takes up most space
+        flex: 1, // Fill entire card
     },
     infoContainer: {
         flex: 1.5,
@@ -109,7 +99,15 @@ const styles = StyleSheet.create({
     name: { fontSize: 24, fontWeight: 'bold' },
     distance: { color: '#4A90E2', fontWeight: '600' },
     bio: { fontSize: 16, color: 'gray' },
-    actions: { flexDirection: 'row', gap: 15, marginTop: 10 },
+    actions: {
+        position: 'absolute',
+        bottom: 20,
+        left: 20,
+        right: 20,
+        flexDirection: 'row',
+        gap: 15,
+        zIndex: 10
+    },
     button: { flex: 1, padding: 15, borderRadius: 10, alignItems: 'center', justifyContent: 'center' },
     pass: { backgroundColor: '#eee' },
     like: { backgroundColor: '#FF6B6B' },
