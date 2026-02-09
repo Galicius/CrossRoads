@@ -83,7 +83,7 @@ const styles = StyleSheet.create({
         backgroundColor: 'white',
         borderRadius: 20,
         overflow: 'hidden',
-        height: height * 0.75, // Fixed height for deck card
+        height: height * 0.70, // Fixed height for deck card - subtly smaller
         shadowColor: "#000",
         shadowOffset: {
             width: 0,
