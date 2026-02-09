@@ -12,6 +12,7 @@ import SocialFeedScreen from '../screens/social/SocialFeedScreen';
 import DatingDiscoverScreen from '../screens/dating/DatingDiscoverScreen';
 import BuilderDirectoryScreen from '../screens/builders/BuilderDirectoryScreen';
 import ConversationListScreen from '../screens/chat/ConversationListScreen';
+import ChatScreen from '../screens/chat/ChatScreen';
 import { NotFound } from './screens/NotFound';
 
 import { HapticTab } from '@/components/HapticTab';
@@ -104,6 +105,10 @@ const RootStack = createNativeStackNavigator({
       screen: NotFound,
       options: { title: '404' },
       linking: { path: '*' },
+    },
+    ChatDetail: {
+      screen: ChatScreen,
+      options: { title: 'Chat' },
     },
   },
 });
