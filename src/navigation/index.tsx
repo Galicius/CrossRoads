@@ -3,6 +3,9 @@ import { createStaticNavigation, StaticParamList } from '@react-navigation/nativ
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { Platform } from 'react-native';
 
+// ✅ ONLY ICON CHANGE: use Ionicons for tab icons
+import Ionicons from '@expo/vector-icons/Ionicons';
+
 // Screens
 import LandingScreen from '../screens/auth/LandingScreen';
 import InviteCodeScreen from '../screens/auth/InviteCodeScreen';
@@ -26,7 +29,9 @@ const HomeTabs = createBottomTabNavigator({
       options: {
         title: 'Social',
         headerShown: false,
-        tabBarIcon: ({ color, focused }) => <IconSymbol size={24} name={focused ? "house.fill" : "house"} color={color} />,
+        tabBarIcon: ({ color, focused }) => (
+          <Ionicons name={focused ? 'home' : 'home-outline'} size={24} color={color} />
+        ),
       },
     },
     Dating: {
@@ -34,7 +39,9 @@ const HomeTabs = createBottomTabNavigator({
       options: {
         title: 'Dating',
         headerShown: false,
-        tabBarIcon: ({ color, focused }) => <IconSymbol size={24} name={focused ? "heart.fill" : "heart"} color={color} />,
+        tabBarIcon: ({ color, focused }) => (
+          <Ionicons name={focused ? 'heart' : 'heart-outline'} size={24} color={color} />
+        ),
       },
     },
     Chat: {
@@ -42,7 +49,9 @@ const HomeTabs = createBottomTabNavigator({
       options: {
         title: 'Chat',
         headerShown: false,
-        tabBarIcon: ({ color, focused }) => <IconSymbol size={24} name={focused ? "bubble.left.fill" : "bubble.left"} color={color} />,
+        tabBarIcon: ({ color, focused }) => (
+          <Ionicons name={focused ? 'chatbubbles' : 'chatbubbles-outline'} size={24} color={color} />
+        ),
       },
     },
     MyProfile: {
@@ -50,7 +59,9 @@ const HomeTabs = createBottomTabNavigator({
       options: {
         title: 'Profile',
         headerShown: false,
-        tabBarIcon: ({ color, focused }) => <IconSymbol size={24} name={focused ? "person.fill" : "person"} color={color} />,
+        tabBarIcon: ({ color, focused }) => (
+          <Ionicons name={focused ? 'person' : 'person-outline'} size={24} color={color} />
+        ),
       },
     },
   },
