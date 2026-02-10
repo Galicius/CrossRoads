@@ -4,6 +4,7 @@ import { View, StyleSheet, Image, Dimensions, TouchableWithoutFeedback, Text } f
 import Carousel from 'react-native-reanimated-carousel';
 import { MinimalistMap } from './MinimalistMap';
 import Animated, { useAnimatedStyle, withTiming, useSharedValue } from 'react-native-reanimated';
+import { LinearGradient } from 'expo-linear-gradient';
 
 interface DetailCarouselProps {
     images: string[];
@@ -81,9 +82,43 @@ const styles = StyleSheet.create({
         width: '100%',
         height: '100%',
     },
+    gradient: {
+        position: 'absolute',
+        left: 0,
+        right: 0,
+        bottom: 0,
+        height: '50%',
+    },
     mapContainer: {
         flex: 1,
         backgroundColor: '#f0f0f0',
+    },
+    profileOverlay: {
+        position: 'absolute',
+        bottom: 20,
+        left: 20,
+        right: 20,
+    },
+    profileName: {
+        color: 'white',
+        fontSize: 28,
+        fontWeight: 'bold',
+        marginBottom: 4,
+        textShadowColor: 'rgba(0, 0, 0, 0.75)',
+        textShadowOffset: { width: 0, height: 1 },
+        textShadowRadius: 3,
+    },
+    profileDistance: {
+        color: 'white',
+        fontSize: 14,
+        marginBottom: 8,
+        opacity: 0.9,
+    },
+    profileBio: {
+        color: 'white',
+        fontSize: 15,
+        lineHeight: 20,
+        opacity: 0.95,
     },
     overlay: {
         position: 'absolute',

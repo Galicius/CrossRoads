@@ -45,6 +45,7 @@ export const SwipeableCard: React.FC<SwipeableCardProps> = ({ profile, onPass, o
                     meetPoint={profile.meetPoint}
                     onExpand={toggleExpand}
                     isExpanded={isExpanded}
+                    profile={profile}
                 />
             </View>
 
