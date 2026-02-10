@@ -135,11 +135,6 @@ export default function ConversationListScreen() {
                     )}
                 />
             )}
-
-            {/* Floating Action Button */}
-            <TouchableOpacity style={styles.fab}>
-                <IconSymbol name="plus" size={28} color="white" />
-            </TouchableOpacity>
         </View>
     );
 }
@@ -259,20 +254,5 @@ const styles = StyleSheet.create({
         fontSize: 13,
         fontWeight: 'bold'
     },
-    fab: {
-        position: 'absolute',
-        bottom: 30,
-        right: 30,
-        width: 60,
-        height: 60,
-        borderRadius: 30,
-        backgroundColor: '#FF2D92',
-        justifyContent: 'center',
-        alignItems: 'center',
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 4 },
-        shadowOpacity: 0.3,
-        shadowRadius: 8,
-        elevation: 8
-    }
+
 });
