@@ -21,20 +21,12 @@ import TabBarBackground from '@/components/ui/TabBarBackground';
 
 const HomeTabs = createBottomTabNavigator({
   screens: {
-    MyProfile: {
-      screen: MyProfileScreen,
-      options: {
-        title: 'Profile',
-        headerShown: false,
-        tabBarIcon: ({ color }) => <IconSymbol size={28} name="person.circle.fill" color={color} />,
-      },
-    },
     Social: {
       screen: SocialFeedScreen,
       options: {
         title: 'Social',
         headerShown: false,
-        tabBarIcon: ({ color }) => <IconSymbol size={28} name="map.fill" color={color} />,
+        tabBarIcon: ({ color, focused }) => <IconSymbol size={24} name={focused ? "house.fill" : "house"} color={color} />,
       },
     },
     Dating: {
@@ -42,15 +34,7 @@ const HomeTabs = createBottomTabNavigator({
       options: {
         title: 'Dating',
         headerShown: false,
-        tabBarIcon: ({ color }) => <IconSymbol size={28} name="heart.fill" color={color} />,
-      },
-    },
-    Builders: {
-      screen: BuilderDirectoryScreen,
-      options: {
-        title: 'Builders',
-        headerShown: false,
-        tabBarIcon: ({ color }) => <IconSymbol size={28} name="hammer.fill" color={color} />,
+        tabBarIcon: ({ color, focused }) => <IconSymbol size={24} name={focused ? "heart.fill" : "heart"} color={color} />,
       },
     },
     Chat: {
@@ -58,20 +42,44 @@ const HomeTabs = createBottomTabNavigator({
       options: {
         title: 'Chat',
         headerShown: false,
-        tabBarIcon: ({ color }) => <IconSymbol size={28} name="bubble.left.fill" color={color} />,
+        tabBarIcon: ({ color, focused }) => <IconSymbol size={24} name={focused ? "bubble.left.fill" : "bubble.left"} color={color} />,
+      },
+    },
+    MyProfile: {
+      screen: MyProfileScreen,
+      options: {
+        title: 'Profile',
+        headerShown: false,
+        tabBarIcon: ({ color, focused }) => <IconSymbol size={24} name={focused ? "person.fill" : "person"} color={color} />,
       },
     },
   },
   screenOptions: {
     headerShown: false,
-    tabBarButton: HapticTab,
-    tabBarBackground: TabBarBackground,
-    tabBarStyle: Platform.select({
-      ios: {
-        position: 'absolute' as const,
-      },
-      default: {},
-    }),
+    tabBarActiveTintColor: '#5B7FFF', // Violet/Blue from reference/chat
+    tabBarInactiveTintColor: '#8E8E93',
+    tabBarStyle: {
+      backgroundColor: 'white',
+      borderTopWidth: 0,
+      elevation: 0, // Remove shadow on Android
+      shadowOpacity: 0, // Remove shadow on iOS
+      height: 80,
+      paddingTop: 10,
+      paddingBottom: 25,
+      // Make it look like the image (clean, white)
+    },
+    tabBarLabelStyle: {
+      fontSize: 12,
+      fontWeight: '500',
+      marginBottom: 0,
+      marginTop: 5,
+    },
+    tabBarIconStyle: {
+      marginTop: 5,
+    },
+    // Remove the custom background/button to simplify to match the clean vector image
+    // tabBarButton: HapticTab,
+    // tabBarBackground: TabBarBackground,
   },
 });
 
