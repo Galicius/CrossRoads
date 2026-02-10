@@ -1,12 +1,8 @@
-
 import React, { useState } from 'react';
 import { View, StyleSheet, Text, Dimensions, TouchableOpacity } from 'react-native';
+import { LinearGradient } from 'expo-linear-gradient';
 import { DetailCarousel } from './DetailCarousel';
 import Animated, { useAnimatedStyle, withSpring, useSharedValue } from 'react-native-reanimated';
-
-// Since we are using react-native-deck-swiper or similar, this component might just be the "Card Content".
-// The swiping logic is handled by the DeckSwiper component in the parent.
-// However, we need to handle the "Expand" logic.
 
 const { width, height } = Dimensions.get('window');
 
@@ -36,12 +32,12 @@ export const SwipeableCard: React.FC<SwipeableCardProps> = ({ profile, onPass, o
         const newState = !isExpanded;
         setIsExpanded(newState);
         onExpandChange?.(newState);
-        console.log("Expanding card:", newState);
     };
 
     return (
         <View style={[styles.card, isExpanded ? styles.expandedCard : {}]}>
-            <View style={styles.carouselContainer}>
+            {/* Full-size Image/Carousel */}
+            <View style={styles.imageBackground}>
                 <DetailCarousel
                     images={profile.images}
                     myPath={profile.myPath}
@@ -52,27 +48,30 @@ export const SwipeableCard: React.FC<SwipeableCardProps> = ({ profile, onPass, o
                 />
             </View>
 
-            <View style={styles.infoContainer}>
-                <View style={styles.header}>
-                    <Text style={styles.name}>{profile.name}, {profile.age}</Text>
-                    <Text style={styles.distance}>{profile.distance}</Text>
-                </View>
-                <Text style={styles.bio} numberOfLines={isExpanded ? 0 : 2}>{profile.bio}</Text>
+            {/* Content Overlay */}
+            <LinearGradient
+                colors={['transparent', 'rgba(0,0,0,0.4)', 'rgba(0,0,0,0.8)']}
+                style={styles.overlayGradient}
+            >
+                <View style={styles.infoContainer}>
+                    <View style={styles.header}>
+                        <Text style={styles.name}>{profile.name}, {profile.age}</Text>
+                        <Text style={styles.landlover}>Landlover</Text>
+                    </View>
+                    <Text style={styles.bio} numberOfLines={isExpanded ? 0 : 3}>
+                        "{profile.bio}"
+                    </Text>
 
-                {/* Only show actions if expanded or maybe always? 
-                     Usually in Tinder, actions are always visible below or overlaid. 
-                     If we are in "Deck" mode, the actions might be buttons outside the card or gestures.
-                     Let's keep them here for now as part of the card content.
-                 */}
-                <View style={styles.actions}>
-                    <TouchableOpacity style={[styles.button, styles.pass]} onPress={onPass}>
-                        <Text>Pass</Text>
-                    </TouchableOpacity>
-                    <TouchableOpacity style={[styles.button, styles.like]} onPress={onMatch}>
-                        <Text style={styles.likeText}>Connect</Text>
-                    </TouchableOpacity>
+                    <View style={styles.actions}>
+                        <TouchableOpacity style={[styles.button, styles.pass]} onPress={onPass}>
+                            <Text style={styles.actionText}>Pass</Text>
+                        </TouchableOpacity>
+                        <TouchableOpacity style={[styles.button, styles.like]} onPress={onMatch}>
+                            <Text style={styles.likeText}>Connect</Text>
+                        </TouchableOpacity>
+                    </View>
                 </View>
-            </View>
+            </LinearGradient>
         </View>
     );
 };
@@ -83,35 +82,90 @@ const styles = StyleSheet.create({
         backgroundColor: 'white',
         borderRadius: 20,
         overflow: 'hidden',
-        height: height * 0.70, // Fixed height for deck card - subtly smaller
+        height: height * 0.35,
+        width: width * 0.9,
+        alignSelf: 'center',
         shadowColor: "#000",
         shadowOffset: {
             width: 0,
-            height: 2,
+            height: 4,
         },
-        shadowOpacity: 0.25,
-        shadowRadius: 3.84,
-        elevation: 5,
+        shadowOpacity: 0.30,
+        shadowRadius: 4.65,
+        elevation: 8,
         marginBottom: 20
     },
     expandedCard: {
-        // height: height * 0.85, // Maybe grow a bit?
+        height: height * 0.55,
     },
-    carouselContainer: {
-        flex: 4, // Takes up most space
+    imageBackground: {
+        ...StyleSheet.absoluteFillObject,
+        zIndex: -1,
+    },
+    overlayGradient: {
+        position: 'absolute',
+        bottom: 0,
+        left: 0,
+        right: 0,
+        paddingTop: 60, // Grant space for gradient fade
+        paddingBottom: 20,
+        paddingHorizontal: 20,
+        justifyContent: 'flex-end',
     },
     infoContainer: {
-        flex: 1.5,
-        padding: 20,
-        justifyContent: 'space-between'
+        // Removed padding/flex here as it's handled by gradient container
     },
-    header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 5 },
-    name: { fontSize: 24, fontWeight: 'bold' },
-    distance: { color: '#4A90E2', fontWeight: '600' },
-    bio: { fontSize: 16, color: 'gray' },
-    actions: { flexDirection: 'row', gap: 15, marginTop: 10 },
-    button: { flex: 1, padding: 15, borderRadius: 10, alignItems: 'center', justifyContent: 'center' },
-    pass: { backgroundColor: '#eee' },
-    like: { backgroundColor: '#FF6B6B' },
-    likeText: { color: 'white', fontWeight: 'bold' },
+    header: {
+        marginBottom: 8
+    },
+    name: {
+        fontSize: 28,
+        fontWeight: 'bold',
+        color: 'white',
+        marginBottom: 2
+    },
+    landlover: {
+        fontSize: 16,
+        color: 'rgba(255, 255, 255, 0.9)',
+        marginBottom: 4
+    },
+    bio: {
+        fontSize: 15,
+        color: 'rgba(255, 255, 255, 0.8)',
+        marginBottom: 20,
+        fontStyle: 'italic',
+        lineHeight: 20
+    },
+    actions: {
+        flexDirection: 'row',
+        gap: 15
+    },
+    button: {
+        flex: 1,
+        padding: 15,
+        borderRadius: 30, // Rounder buttons
+        alignItems: 'center',
+        justifyContent: 'center',
+        backgroundColor: 'rgba(255,255,255,0.2)', // Glassmorphic button
+        borderWidth: 1,
+        borderColor: 'rgba(255,255,255,0.3)',
+    },
+    pass: {
+        // backgroundColor: 'rgba(255, 59, 48, 0.2)', // Red tint? or just glass
+        // borderColor: 'rgba(255, 59, 48, 0.5)' 
+    },
+    like: {
+        // backgroundColor: 'rgba(52, 199, 89, 0.2)', // Green tint?
+        // borderColor: 'rgba(52, 199, 89, 0.5)'
+        backgroundColor: 'white', // Keep connect prominent? Or style as per image (looks like just text in image, but user said keep buttons)
+        // Let's make "Connect" solid white for contrast if "Pass" is glass
+    },
+    actionText: {
+        color: 'white',
+        fontWeight: '600'
+    },
+    likeText: {
+        color: '#333',
+        fontWeight: 'bold'
+    },
 });

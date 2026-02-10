@@ -12,12 +12,16 @@ interface DetailCarouselProps {
     meetPoint: any;
     onExpand: () => void;
     isExpanded: boolean;
+    width?: number;
+    height?: number;
 }
 
-const { width } = Dimensions.get('window');
+const window = Dimensions.get('window');
 
 export const DetailCarousel: React.FC<DetailCarouselProps> = ({
-    images, myPath, matchPath, meetPoint, onExpand, isExpanded
+    images, myPath, matchPath, meetPoint, onExpand, isExpanded,
+    width = window.width * 0.9, // Default to card width
+    height = window.height * 0.65 // Default to card height
 }) => {
     // Pages: [Main Image, Map, ...Rest Images]
     const data = [
@@ -32,11 +36,7 @@ export const DetailCarousel: React.FC<DetailCarouselProps> = ({
                 <TouchableWithoutFeedback onPress={onExpand}>
                     <View style={styles.imageContainer}>
                         <Image source={{ uri: item.uri }} style={styles.image} resizeMode="cover" />
-                        {!isExpanded && index === 0 && (
-                            <View style={styles.overlay}>
-                                <Text style={styles.tapHint}>Tap to view details</Text>
-                            </View>
-                        )}
+                        {/* Overlay moved to parent SwipeableCard for consistent look */}
                     </View>
                 </TouchableWithoutFeedback>
             );
@@ -54,16 +54,13 @@ export const DetailCarousel: React.FC<DetailCarouselProps> = ({
         <View style={styles.container}>
             <Carousel
                 loop={false}
-                width={width - 40} // Card width approx
-                height={isExpanded ? 500 : 400} // Dynamic height? Or fixed for now
+                width={width}
+                height={height}
                 autoPlay={false}
                 data={data}
                 scrollAnimationDuration={1000}
                 renderItem={renderItem}
-                enabled={isExpanded} // Only swipe carousel when expanded? Or always?
-            // If not expanded, maybe disable swipe so outer card can be swiped?
-            // Actually, if we touch the carousel area, `react-native-deck-swiper` might not pick up the pan.
-            // We usually need the outer swiper to handle the gesture unless we are in "detail" mode.
+                enabled={isExpanded}
             />
         </View>
     );
@@ -74,6 +71,7 @@ const styles = StyleSheet.create({
         flex: 1,
         borderRadius: 20,
         overflow: 'hidden',
+
     },
     imageContainer: {
         flex: 1,
