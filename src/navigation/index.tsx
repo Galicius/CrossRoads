@@ -75,7 +75,7 @@ const HomeTabs = createBottomTabNavigator({
       elevation: 0, // Remove shadow on Android
       shadowOpacity: 0, // Remove shadow on iOS
       height: 80,
-      paddingTop: 10,
+      paddingTop: 5,
       paddingBottom: 25,
       // Make it look like the image (clean, white)
     },

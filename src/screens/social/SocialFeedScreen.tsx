@@ -1,16 +1,23 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, FlatList, TouchableOpacity, Image, Linking } from 'react-native';
-import MapView, { Marker, PROVIDER_GOOGLE } from 'react-native-maps';
+import { View, Text, StyleSheet, FlatList, TouchableOpacity, Image, TextInput, ScrollView, Platform } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import Ionicons from '@expo/vector-icons/Ionicons';
 import { supabase } from '@/lib/supabase';
-import { IconSymbol } from '@/components/ui/IconSymbol';
 
 const TABS = ['People', 'Events', 'Builders'];
+const TAGS = [
+    { name: 'Sports', icon: 'football-outline' },
+    { name: 'Arts', icon: 'color-palette-outline' },
+    { name: 'Tech', icon: 'hardware-chip-outline' },
+    { name: 'Music', icon: 'musical-notes-outline' }
+];
 
 export default function SocialFeedScreen() {
-    const [activeTab, setActiveTab] = useState('People');
-    const [viewMode, setViewMode] = useState<'list' | 'map'>('list');
+    const insets = useSafeAreaInsets();
+    const [activeTab, setActiveTab] = useState('Events'); // Default to Events as per image focus
     const [data, setData] = useState<any[]>([]);
     const [loading, setLoading] = useState(false);
+    const [searchText, setSearchText] = useState('');
 
     useEffect(() => {
         fetchData();
@@ -20,17 +27,37 @@ export default function SocialFeedScreen() {
         setLoading(true);
         try {
             if (activeTab === 'People') {
-                // Mock people for now or fetch profiles
                 setData([
-                    { id: '1', name: 'Jake', activity: 'Climbing', location: { latitude: 37.78825, longitude: -122.4324 }, bio: 'Looking for a belay partner at Mission Cliffs!' },
-                    { id: '2', name: 'Sarah', activity: 'Skiing', location: { latitude: 37.75825, longitude: -122.4624 }, bio: 'Heading to Tahoe this weekend. Anyone want to caravan?' },
+                    { id: '1', name: 'Jake', activity: 'Climbing', bio: 'Looking for a belay partner!' },
+                    { id: '2', name: 'Sarah', activity: 'Skiing', bio: 'Heading to Tahoe this weekend.' },
                 ]);
             } else if (activeTab === 'Events') {
-                const { data: events, error } = await supabase.from('events').select('*').order('start_time', { ascending: true });
-                if (events) setData(events);
+                // Mock events to match the "Sunrise Yoga" style if DB is empty or for demo
+                // const { data: events } = await supabase.from('events').select('*');
+                // if (events && events.length > 0) setData(events);
+                // else 
+                setData([
+                    {
+                        id: '1',
+                        title: 'Sunrise Yoga',
+                        description: 'Relax with me at sunrise yoga this Saturday! We\'ll have a great time.',
+                        time: '5.45 - 7.10 AM',
+                        location: 'Paris, France',
+                        image_url: 'https://images.unsplash.com/photo-1544367563-12123d8965cd?ixlib=rb-1.2.1&auto=format&fit=crop&w=800&q=80'
+                    },
+                    {
+                        id: '2',
+                        title: 'City Cycling',
+                        description: 'Join us for a 20km ride around the city center.',
+                        time: '9.00 - 11.00 AM',
+                        location: 'Central Park',
+                        image_url: 'https://images.unsplash.com/photo-1541625602330-2277a4c46182?ixlib=rb-1.2.1&auto=format&fit=crop&w=800&q=80'
+                    }
+                ]);
             } else if (activeTab === 'Builders') {
-                const { data: builders, error } = await supabase.from('builders').select('*');
-                if (builders) setData(builders);
+                setData([
+                    { id: '1', name: 'TechHub', location: 'Downtown', description: 'Co-working space for founders.' }
+                ]);
             }
         } catch (error) {
             console.error('Error fetching data:', error);
@@ -40,132 +67,298 @@ export default function SocialFeedScreen() {
     }
 
     const renderItem = ({ item }: { item: any }) => {
-        if (activeTab === 'People') {
-            return (
-                <View style={styles.card}>
-                    <View style={styles.cardHeader}>
-                        <Text style={styles.name}>{item.name}</Text>
-                        <Text style={styles.activityBadge}>{item.activity}</Text>
-                    </View>
-                    <Text style={styles.bio}>{item.bio}</Text>
-                    <TouchableOpacity style={styles.connectBtn}>
-                        <Text style={styles.connectText}>Connect</Text>
-                    </TouchableOpacity>
-                </View>
-            );
-        } else if (activeTab === 'Events') {
+        if (activeTab === 'Events') {
             return (
                 <View style={styles.eventCard}>
                     <Image source={{ uri: item.image_url }} style={styles.eventImage} />
                     <View style={styles.eventContent}>
                         <Text style={styles.eventTitle}>{item.title}</Text>
-                        <Text style={styles.eventLocation}>📍 {item.location}</Text>
-                        <Text style={styles.eventTime}>📅 {new Date(item.start_time).toLocaleDateString()}</Text>
                         <Text style={styles.eventDesc} numberOfLines={2}>{item.description}</Text>
-                        <TouchableOpacity style={styles.joinBtn}>
-                            <Text style={styles.joinBtnText}>Join Event</Text>
-                        </TouchableOpacity>
-                    </View>
-                </View>
-            );
-        } else if (activeTab === 'Builders') {
-            return (
-                <View style={styles.builderCard}>
-                    <Image source={{ uri: item.logo_url }} style={styles.builderLogo} />
-                    <View style={styles.builderContent}>
-                        <Text style={styles.builderName}>{item.name}</Text>
-                        <Text style={styles.builderLocation}>🛠️ {item.location}</Text>
-                        <Text style={styles.builderDesc} numberOfLines={2}>{item.description}</Text>
-                        {item.website && (
-                            <TouchableOpacity onPress={() => Linking.openURL(item.website)}>
-                                <Text style={styles.websiteLink}>Visit Website</Text>
-                            </TouchableOpacity>
-                        )}
+
+                        <View style={styles.infoRow}>
+                            <Ionicons name="time-outline" size={16} color="#5B7FFF" />
+                            <Text style={styles.infoText}>{item.time}</Text>
+                        </View>
+                        <View style={styles.infoRow}>
+                            <Ionicons name="location-outline" size={16} color="#5B7FFF" />
+                            <Text style={styles.infoText}>{item.location}</Text>
+                        </View>
                     </View>
                 </View>
             );
         }
-        return null;
-    };
 
-    const handleTabChange = (tab: string) => {
-        setData([]); // Clear data immediately to prevent rendering old data with new template
-        setActiveTab(tab);
+        // Fallback for other tabs (simple list for now)
+        return (
+            <View style={styles.simpleCard}>
+                <Text style={styles.cardTitle}>{item.name || item.title}</Text>
+                <Text style={styles.cardSubtitle}>{item.activity || item.location}</Text>
+                <Text style={styles.cardDesc}>{item.bio || item.description}</Text>
+            </View>
+        );
     };
 
     return (
-        <View style={styles.container}>
-            {/* Header / Tabs */}
-            <View style={styles.header}>
-                <Text style={styles.headerTitle}>Discover</Text>
-                <View style={styles.tabContainer}>
+        <View style={[styles.container, { paddingTop: insets.top }]}>
+            {/* Header Area */}
+            <View style={styles.headerArea}>
+                <View style={styles.headerTop}>
+                    <Text style={styles.screenTitle}>Discover</Text>
+
+
+                </View>
+
+                {/* Tabs */}
+                <View style={styles.tabsRow}>
                     {TABS.map(tab => (
                         <TouchableOpacity
                             key={tab}
                             style={[styles.tab, activeTab === tab && styles.activeTab]}
-                            onPress={() => handleTabChange(tab)}
+                            onPress={() => setActiveTab(tab)}
                         >
-                            <Text style={[styles.tabText, activeTab === tab && styles.activeTabText]}>{tab}</Text>
+                            <Text style={[styles.tabText, activeTab === tab && styles.activeTabText]}>
+                                {tab}
+                            </Text>
+                            {activeTab === tab && <View style={styles.activeLine} />}
                         </TouchableOpacity>
                     ))}
                 </View>
             </View>
 
-            {/* View Toggle (Only relevant for People/Events maybe, kept simple for now) */}
-            {/* <View style={styles.toggleContainer}> ... </View> */}
+            {/* Main Content Area - White rounded container */}
+            <View style={styles.contentContainer}>
+                {/* Search & Filter */}
+                <View style={styles.searchRow}>
+                    <View style={styles.searchBar}>
+                        <Ionicons name="search-outline" size={20} color="#999" style={{ marginRight: 8 }} />
+                        <TextInput
+                            placeholder="Find groups and events..."
+                            placeholderTextColor="#999"
+                            style={styles.input}
+                            value={searchText}
+                            onChangeText={setSearchText}
+                        />
+                    </View>
+                    <TouchableOpacity style={styles.filterBtn}>
+                        <Ionicons name="options-outline" size={24} color="#999" />
+                    </TouchableOpacity>
+                </View>
 
-            {/* Content */}
-            <FlatList
-                key={activeTab} // Force re-mount on tab change!
-                data={data}
-                renderItem={renderItem}
-                keyExtractor={item => item.id}
-                contentContainerStyle={styles.listContent}
-                refreshing={loading}
-                onRefresh={fetchData}
-            />
+                {/* Tags */}
+                <View style={styles.tagsContainer}>
+                    <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ paddingHorizontal: 20 }}>
+                        {TAGS.map((tag, index) => (
+                            <TouchableOpacity key={index} style={styles.tagBadge}>
+                                <Ionicons name={tag.icon as any} size={16} color="white" style={{ marginRight: 6 }} />
+                                <Text style={styles.tagText}>{tag.name}</Text>
+                            </TouchableOpacity>
+                        ))}
+                    </ScrollView>
+                </View>
+
+                {/* List */}
+                <FlatList
+                    data={data}
+                    renderItem={renderItem}
+                    keyExtractor={item => item.id}
+                    contentContainerStyle={styles.listContent}
+                    showsVerticalScrollIndicator={false}
+                />
+            </View>
         </View>
     );
 }
 
 const styles = StyleSheet.create({
-    container: { flex: 1, backgroundColor: '#f8f9fa' },
-    header: { backgroundColor: 'white', padding: 20, paddingTop: 60, borderBottomWidth: 1, borderBottomColor: '#eee' },
-    headerTitle: { fontSize: 28, fontWeight: 'bold', marginBottom: 15, color: '#333' },
-    tabContainer: { flexDirection: 'row', gap: 10 },
-    tab: { paddingVertical: 8, paddingHorizontal: 16, borderRadius: 20, backgroundColor: '#f0f0f0' },
-    activeTab: { backgroundColor: '#333' },
-    tabText: { fontWeight: '600', color: '#666' },
-    activeTabText: { color: 'white' },
+    container: {
+        flex: 1,
+        backgroundColor: '#E5E5EA',
 
-    listContent: { padding: 15 },
+    },
+    headerArea: {
+        paddingHorizontal: 20,
+        paddingBottom: 0,
+        paddingTop: 10,
+    },
+    headerTop: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        marginBottom: 20,
+    },
 
-    // People Card
-    card: { backgroundColor: 'white', padding: 15, borderRadius: 15, marginBottom: 15, shadowColor: '#000', shadowOpacity: 0.05, shadowRadius: 5, elevation: 2 },
-    cardHeader: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 5 },
-    name: { fontSize: 18, fontWeight: 'bold' },
-    activityBadge: { fontSize: 12, color: '#666', backgroundColor: '#f0f0f0', paddingHorizontal: 8, paddingVertical: 4, borderRadius: 8, overflow: 'hidden' },
-    bio: { color: '#666', marginBottom: 15, lineHeight: 20 },
-    connectBtn: { backgroundColor: '#007AFF', borderRadius: 10, padding: 10, alignItems: 'center' },
-    connectText: { color: 'white', fontWeight: 'bold' },
 
-    // Event Card
-    eventCard: { backgroundColor: 'white', borderRadius: 15, marginBottom: 15, overflow: 'hidden', shadowColor: '#000', shadowOpacity: 0.05, shadowRadius: 5, elevation: 2 },
-    eventImage: { width: '100%', height: 150 },
-    eventContent: { padding: 15 },
-    eventTitle: { fontSize: 18, fontWeight: 'bold', marginBottom: 5 },
-    eventLocation: { color: '#666', fontSize: 14, marginBottom: 5 },
-    eventTime: { color: '#5659ab', fontWeight: '600', marginBottom: 10 },
-    eventDesc: { color: '#444', marginBottom: 15, lineHeight: 20 },
-    joinBtn: { borderWidth: 1, borderColor: '#5659ab', borderRadius: 10, padding: 10, alignItems: 'center' },
-    joinBtnText: { color: '#5659ab', fontWeight: 'bold' },
+    screenTitle: {
+        fontSize: 32,
+        fontWeight: 'bold',
+        color: '#1A1A1A',
+        marginTop: 10,
+        marginBottom: 10,
+    },
+    tabsRow: {
+        flexDirection: 'row',
+        gap: 30,
+        paddingLeft: 5,
+        marginBottom: -3, // Pull tabs down slightly so underline overlaps content container details
+        zIndex: 10
+    },
+    tab: {
+        paddingBottom: 15,
+        position: 'relative',
+    },
+    activeTab: {
+        // Active state handled by line
+    },
+    tabText: {
+        fontSize: 18,
+        fontWeight: '600',
+        color: '#999',
+    },
+    activeTabText: {
+        color: '#1A1A1A',
+    },
+    activeLine: {
+        position: 'absolute',
+        bottom: 0,
+        left: 0,
+        right: 0,
+        height: 4,
+        backgroundColor: '#5B7FFF', // Match chat violet/blue
+        borderTopLeftRadius: 2,
+        borderTopRightRadius: 2
+    },
 
-    // Builder Card
-    builderCard: { flexDirection: 'row', backgroundColor: 'white', padding: 15, borderRadius: 15, marginBottom: 15, shadowColor: '#000', shadowOpacity: 0.05, shadowRadius: 5, elevation: 2 },
-    builderLogo: { width: 80, height: 80, borderRadius: 10, backgroundColor: '#eee' },
-    builderContent: { flex: 1, marginLeft: 15, justifyContent: 'center' },
-    builderName: { fontSize: 18, fontWeight: 'bold', marginBottom: 5 },
-    builderLocation: { color: '#666', fontSize: 14, marginBottom: 5 },
-    builderDesc: { color: '#444', fontSize: 13, marginBottom: 5 },
-    websiteLink: { color: '#007AFF', fontWeight: '600', fontSize: 13 },
+    // Content Container
+    contentContainer: {
+        flex: 1,
+        backgroundColor: 'white',
+        borderTopLeftRadius: 30,
+        borderTopRightRadius: 30,
+        paddingTop: 25,
+        overflow: 'hidden',
+    },
+    searchRow: {
+        flexDirection: 'row',
+        paddingHorizontal: 20,
+        alignItems: 'center',
+        marginBottom: 20,
+        gap: 15,
+    },
+    searchBar: {
+        flex: 1,
+        flexDirection: 'row',
+        alignItems: 'center',
+        backgroundColor: 'white',
+        borderWidth: 1,
+        borderColor: '#F0F0F0',
+        borderRadius: 12,
+        paddingHorizontal: 15,
+        height: 46,
+        // Shadow for floating effect
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.05,
+        shadowRadius: 5,
+        elevation: 2,
+    },
+    input: {
+        flex: 1,
+        fontSize: 15,
+        color: '#333',
+    },
+    filterBtn: {
+        padding: 5,
+    },
+
+    tagsContainer: {
+        marginBottom: 20,
+        height: 32,
+    },
+    tagBadge: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        backgroundColor: '#5659ab', // Darker violet/blue
+        paddingHorizontal: 16,
+        paddingVertical: 8,
+        borderRadius: 20,
+        marginRight: 10,
+    },
+    tagText: {
+        color: 'white',
+        fontWeight: '600',
+        fontSize: 13,
+    },
+
+    listContent: {
+        paddingHorizontal: 20,
+        paddingBottom: 100,
+    },
+
+    // Event Card Style
+    eventCard: {
+        flexDirection: 'row',
+        backgroundColor: 'white',
+        borderRadius: 16,
+        padding: 12,
+        marginBottom: 16,
+        // Card shadow
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.08,
+        shadowRadius: 8,
+        elevation: 3,
+        borderWidth: 1,
+        borderColor: '#f8f8f8',
+    },
+    eventImage: {
+        width: 100,
+        height: 100,
+        borderRadius: 12,
+        backgroundColor: '#ddd',
+    },
+    eventContent: {
+        flex: 1,
+        marginLeft: 15,
+        justifyContent: 'center',
+    },
+    eventTitle: {
+        fontSize: 18,
+        fontWeight: 'bold',
+        color: '#1A1A1A',
+        marginBottom: 4,
+    },
+    eventDesc: {
+        fontSize: 13,
+        color: '#8E8E93',
+        marginBottom: 10,
+        lineHeight: 18,
+    },
+    infoRow: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        marginBottom: 4,
+        gap: 6,
+    },
+    infoText: {
+        fontSize: 13,
+        color: '#666',
+        fontWeight: '500',
+    },
+
+    // Simple Card Fallback
+    simpleCard: {
+        backgroundColor: 'white',
+        padding: 15,
+        borderRadius: 15,
+        marginBottom: 15,
+        shadowColor: '#000',
+        shadowOpacity: 0.05,
+        shadowRadius: 5,
+        elevation: 2,
+        borderWidth: 1,
+        borderColor: '#f0f0f0',
+    },
+    cardTitle: { fontSize: 18, fontWeight: 'bold' },
+    cardSubtitle: { color: '#666', marginVertical: 4 },
+    cardDesc: { color: '#444' },
 });
