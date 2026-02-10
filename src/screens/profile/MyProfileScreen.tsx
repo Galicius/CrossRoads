@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { View, Text, StyleSheet, Dimensions, ScrollView, Image, ActivityIndicator, TouchableOpacity } from 'react-native';
 import MapView, { Polyline, Marker, PROVIDER_GOOGLE } from 'react-native-maps';
 import { supabase } from '@/lib/supabase';
-import { useNavigation } from '@react-navigation/native';
+import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import Svg, { Path } from 'react-native-svg';
 import { IconSymbol } from '@/components/ui/IconSymbol';
 
@@ -21,10 +21,12 @@ export default function MyProfileScreen() {
     const [activeTab, setActiveTab] = useState('Groups');
     const navigation = useNavigation<any>();
 
-    useEffect(() => {
-        fetchProfile();
-        fetchJoinedEvents();
-    }, []);
+    useFocusEffect(
+        React.useCallback(() => {
+            fetchProfile();
+            fetchJoinedEvents();
+        }, [])
+    );
 
     async function fetchProfile() {
         try {
@@ -34,9 +36,10 @@ export default function MyProfileScreen() {
                 return;
             }
 
+
             const { data, error } = await supabase
                 .from('profiles')
-                .select('*')
+                .select('*, route_data')
                 .eq('id', user.id)
                 .single();
 
@@ -53,11 +56,6 @@ export default function MyProfileScreen() {
             const { data: { user } } = await supabase.auth.getUser();
             if (!user) return;
 
-            // Fetch events where the user is a participant
-            // Note: intricate join might be needed, or just two queries.
-            // For simplicity in this demo, let's fetch all events and filter (not performant for prod but good for prototype)
-            // OR better: fetch event_participants then fetch events.
-
             const { data: participations } = await supabase
                 .from('event_participants')
                 .select('event_id')
@@ -71,17 +69,60 @@ export default function MyProfileScreen() {
                     .in('id', eventIds);
 
                 if (events) setJoinedEvents(events);
-            } else {
-                // If no joined events, maybe show all events for demo purposes or empty state?
-                // For this demo, let's just show mock events if empty so the UI isn't blank for the user review.
-                // UNLESS we want to force them to join.
-                // Let's show "No joined events" state.
             }
-
         } catch (error) {
             console.log('Error fetching events:', error);
         }
     }
+
+    const [routeCoordinates, setRouteCoordinates] = useState<{ latitude: number, longitude: number }[]>([]);
+
+    useEffect(() => {
+        if (profile?.route_data && profile.route_data.length > 1) {
+            fetchRoute(profile.route_data);
+        }
+    }, [profile]);
+
+    const fetchRoute = async (points: any[]) => {
+        try {
+            const coordinatesString = points.map(p => `${p.lng},${p.lat}`).join(';');
+            const url = `http://router.project-osrm.org/route/v1/driving/${coordinatesString}?overview=full&geometries=geojson`;
+
+            const response = await fetch(url);
+            const data = await response.json();
+
+            if (data.code === 'Ok' && data.routes && data.routes.length > 0) {
+                const geometry = data.routes[0].geometry;
+                if (geometry.type === 'LineString') {
+                    const path = geometry.coordinates.map((coord: number[]) => ({
+                        latitude: coord[1],
+                        longitude: coord[0]
+                    }));
+                    setRouteCoordinates(path);
+                }
+            }
+        } catch (error) {
+            console.warn("Error fetching profile route:", error);
+        }
+    };
+
+    const mapRef = React.useRef<MapView>(null);
+
+    useEffect(() => {
+        if (routeCoordinates.length > 0 && mapRef.current) {
+            mapRef.current.fitToCoordinates(routeCoordinates, {
+                edgePadding: { top: 50, right: 50, bottom: 50, left: 50 },
+                animated: false
+            });
+
+            // Add a slight pitch (angle) for a 3D effect
+            setTimeout(() => {
+                if (mapRef.current) {
+                    mapRef.current.animateCamera({ pitch: 45, heading: 0 }, { duration: 1000 });
+                }
+            }, 100);
+        }
+    }, [routeCoordinates]);
 
     if (loading) {
         return <View style={styles.center}><ActivityIndicator size="large" color="#5659ab" /></View>;
@@ -103,31 +144,57 @@ export default function MyProfileScreen() {
                 {/* Header Map with Curve */}
                 <View style={styles.mapContainer}>
                     <MapView
+                        ref={mapRef}
                         style={styles.map}
                         provider={PROVIDER_GOOGLE}
                         initialRegion={{
-                            latitude: 37.0,
-                            longitude: -122.0,
-                            latitudeDelta: 15.0,
-                            longitudeDelta: 15.0,
+                            latitude: profile?.latitude || 46.0569, // Default to Ljubljana
+                            longitude: profile?.longitude || 14.5058,
+                            latitudeDelta: profile?.route_data?.length > 1 ? 15.0 : 0.4,
+                            longitudeDelta: profile?.route_data?.length > 1 ? 15.0 : 0.4,
                         }}
                         scrollEnabled={false}
                         zoomEnabled={false}
-                    // Custom map style to be light/purple tinted if needed
+                        onPress={() => navigation.navigate('RoutePreviewScreen', { userId: profile?.id })}
                     >
-                        {/* Render Route if available, else mock */}
-                        <Polyline
-                            coordinates={MOCK_PATH}
-                            strokeColor="#5659ab"
-                            strokeWidth={3}
-                            lineDashPattern={[5, 5]}
-                        />
-                        <Marker coordinate={MOCK_PATH[0]}>
-                            <View style={styles.markerDot} />
-                        </Marker>
-                        <Marker coordinate={MOCK_PATH[1]}>
-                            <IconSymbol name="mappin.circle.fill" size={30} color="#5659ab" />
-                        </Marker>
+                        {/* Render Route if available */}
+                        {profile?.route_data && profile.route_data.length > 1 && (
+                            <Polyline
+                                coordinates={routeCoordinates.length > 0 ? routeCoordinates : profile.route_data.map((p: any) => ({ latitude: p.lat, longitude: p.lng }))}
+                                strokeColor="#5659ab"
+                                strokeWidth={3}
+                            // lineDashPattern={[5, 5]} // Removed dash for solid road line
+                            />
+                        )}
+
+                        {/* Render Markers for Route */}
+                        {profile?.route_data && profile.route_data.map((p: any, i: number) => (
+                            <Marker
+                                key={i}
+                                coordinate={{ latitude: p.lat, longitude: p.lng }}
+                                anchor={{ x: 0.5, y: 0.5 }}
+                            >
+                                <View style={styles.markerDot} />
+                            </Marker>
+                        ))}
+
+                        {/* Fallback Mock Data if no route */}
+                        {!profile?.route_data && (
+                            <>
+                                <Polyline
+                                    coordinates={MOCK_PATH}
+                                    strokeColor="#5659ab"
+                                    strokeWidth={3}
+                                    lineDashPattern={[5, 5]}
+                                />
+                                <Marker coordinate={MOCK_PATH[0]}>
+                                    <View style={styles.markerDot} />
+                                </Marker>
+                                <Marker coordinate={MOCK_PATH[1]}>
+                                    <IconSymbol name="mappin.circle.fill" size={30} color="#5659ab" />
+                                </Marker>
+                            </>
+                        )}
                     </MapView>
 
                     {/* SVG Curve Mask Overlay */}

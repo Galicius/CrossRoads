@@ -350,6 +350,7 @@ export interface Database {
                     images: string[] | null
                     latitude: number | null
                     longitude: number | null
+                    route_data: Json | null
                     updated_at: string | null
                     username: string | null
                     website: string | null
@@ -363,6 +364,7 @@ export interface Database {
                     images?: string[] | null
                     latitude?: number | null
                     longitude?: number | null
+                    route_data?: Json | null
                     updated_at?: string | null
                     username?: string | null
                     website?: string | null
@@ -376,6 +378,7 @@ export interface Database {
                     images?: string[] | null
                     latitude?: number | null
                     longitude?: number | null
+                    route_data?: Json | null
                     updated_at?: string | null
                     username?: string | null
                     website?: string | null
