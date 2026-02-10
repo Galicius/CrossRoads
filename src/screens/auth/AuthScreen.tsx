@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, Image } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, Image, KeyboardAvoidingView, Platform, TouchableWithoutFeedback, Keyboard } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { LinearGradient } from 'expo-linear-gradient'; // Install if needed, or use solid bg
 
@@ -51,57 +51,66 @@ export default function AuthScreen() {
     }
 
     return (
-        <View style={styles.container}>
-            {/* Decorative top shape */}
-            <View style={styles.topShape} />
+        <KeyboardAvoidingView
+            style={styles.container}
+            behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+            keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 20}
+        >
+            <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
+                <View style={styles.innerContainer}>
+                    {/* Decorative top shape */}
+                    <View style={styles.topShape} />
 
-            <View style={styles.content}>
-                <Text style={styles.title}>{isSignUp ? 'Create Account' : 'Welcome Back'}</Text>
-                <Text style={styles.subtitle}>{isSignUp ? 'Join the community.' : 'Log in to continue your journey.'}</Text>
+                    <View style={styles.content}>
+                        <Text style={styles.title}>{isSignUp ? 'Create Account' : 'Welcome Back'}</Text>
+                        <Text style={styles.subtitle}>{isSignUp ? 'Join the community.' : 'Log in to continue your journey.'}</Text>
 
-                <View style={{ gap: 15, marginBottom: 30 }}>
-                    <TextInput
-                        style={styles.input}
-                        placeholder="Email"
-                        placeholderTextColor="#aaa"
-                        value={email}
-                        onChangeText={setEmail}
-                        autoCapitalize="none"
-                    />
-                    <TextInput
-                        style={styles.input}
-                        placeholder="Password"
-                        placeholderTextColor="#aaa"
-                        secureTextEntry
-                        value={password}
-                        onChangeText={setPassword}
-                    />
+                        <View style={{ gap: 15, marginBottom: 30 }}>
+                            <TextInput
+                                style={styles.input}
+                                placeholder="Email"
+                                placeholderTextColor="#aaa"
+                                value={email}
+                                onChangeText={setEmail}
+                                autoCapitalize="none"
+                            />
+                            <TextInput
+                                style={styles.input}
+                                placeholder="Password"
+                                placeholderTextColor="#aaa"
+                                secureTextEntry
+                                value={password}
+                                onChangeText={setPassword}
+                            />
+                        </View>
+
+                        <TouchableOpacity
+                            style={styles.googleBtn}
+                            onPress={handleAuth}
+                            disabled={loading}
+                        >
+                            {loading ? (
+                                <ActivityIndicator color="#333" />
+                            ) : (
+                                <Text style={styles.googleBtnText}>{isSignUp ? 'Sign Up' : 'Log In'}</Text>
+                            )}
+                        </TouchableOpacity>
+
+                        <TouchableOpacity onPress={() => setIsSignUp(!isSignUp)}>
+                            <Text style={styles.linkText}>
+                                {isSignUp ? 'Already have an account? Log In' : 'New here? Create Account'}
+                            </Text>
+                        </TouchableOpacity>
+                    </View>
                 </View>
-
-                <TouchableOpacity
-                    style={styles.googleBtn}
-                    onPress={handleAuth}
-                    disabled={loading}
-                >
-                    {loading ? (
-                        <ActivityIndicator color="#333" />
-                    ) : (
-                        <Text style={styles.googleBtnText}>{isSignUp ? 'Sign Up' : 'Log In'}</Text>
-                    )}
-                </TouchableOpacity>
-
-                <TouchableOpacity onPress={() => setIsSignUp(!isSignUp)}>
-                    <Text style={styles.linkText}>
-                        {isSignUp ? 'Already have an account? Log In' : 'New here? Create Account'}
-                    </Text>
-                </TouchableOpacity>
-            </View>
-        </View>
+            </TouchableWithoutFeedback>
+        </KeyboardAvoidingView>
     );
 }
 
 const styles = StyleSheet.create({
     container: { flex: 1, backgroundColor: '#f8f9fa' },
+    innerContainer: { flex: 1 },
     topShape: {
         position: 'absolute',
         top: -100,
