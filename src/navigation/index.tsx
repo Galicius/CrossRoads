@@ -137,6 +137,10 @@ const RootStack = createNativeStackNavigator({
       screen: require('../screens/profile/EditRouteScreen').default,
       options: { headerShown: false },
     },
+    EditProfileScreen: {
+      screen: require('../screens/profile/EditProfileScreen').default,
+      options: { headerShown: false },
+    },
   },
 });
 

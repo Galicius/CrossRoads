@@ -213,9 +213,12 @@ export default function MyProfileScreen() {
                         ) : (
                             <Image source={{ uri: 'https://images.unsplash.com/photo-1570295999919-56ceb5ecca61?ixlib=rb-1.2.1&auto=format&fit=crop&w=500&q=80' }} style={styles.avatar} />
                         )}
-                        <View style={styles.editIcon}>
+                        <TouchableOpacity
+                            style={styles.editIcon}
+                            onPress={() => navigation.navigate('EditProfileScreen')}
+                        >
                             <IconSymbol name="pencil" size={16} color="#5659ab" />
-                        </View>
+                        </TouchableOpacity>
                     </View>
                 </View>
 

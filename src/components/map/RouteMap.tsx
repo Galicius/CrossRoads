@@ -211,8 +211,11 @@ export function RouteMap({ checkpoints, interactive = false, onMarkerPress, styl
 
                 if (checkpoints.length > 0) {
                     const c = checkpoints;
-                    const firstStart = (c[0] && c[0].startDate) ? new Date(c[0].startDate) : null;
-                    const lastEnd = (c[c.length - 1] && c[c.length - 1].endDate) ? new Date(c[c.length - 1].endDate) : null;
+                    const firstCheckpoint = c[0];
+                    const firstStart = firstCheckpoint?.startDate ? new Date(firstCheckpoint.startDate) : null;
+
+                    const lastCheckpoint = c[c.length - 1];
+                    const lastEnd = lastCheckpoint?.endDate ? new Date(lastCheckpoint.endDate) : null;
 
                     if (firstStart && now < firstStart) {
                         vehiclePosition = { latitude: c[0].lat, longitude: c[0].lng };
