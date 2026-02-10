@@ -129,6 +129,18 @@ const RootStack = createNativeStackNavigator({
       screen: ChatScreen,
       options: { headerShown: false },
     },
+    RoutePreviewScreen: {
+      screen: require('../screens/profile/RoutePreviewScreen').default,
+      options: { headerShown: false },
+    },
+    EditRouteScreen: {
+      screen: require('../screens/profile/EditRouteScreen').default,
+      options: { headerShown: false },
+    },
+    EditProfileScreen: {
+      screen: require('../screens/profile/EditProfileScreen').default,
+      options: { headerShown: false },
+    },
   },
 });
 

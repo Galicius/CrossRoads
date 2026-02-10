@@ -18,6 +18,15 @@ const MAPPING = {
   'paperplane.fill': 'send',
   'chevron.left.forwardslash.chevron.right': 'code',
   'chevron.right': 'chevron-right',
+  'car.fill': 'directions-car', // Used for vehicle location
+  'camera.fill': 'camera-alt',
+  'xmark': 'close',
+  'plus': 'add',
+  'map': 'map',
+  'pencil': 'edit',
+  'arrow.up': 'keyboard-arrow-up',
+  'arrow.down': 'keyboard-arrow-down',
+  'trash': 'delete',
 } as IconMapping;
 
 /**
