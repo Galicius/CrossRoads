@@ -3,6 +3,9 @@ import { createStaticNavigation, StaticParamList } from '@react-navigation/nativ
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { Platform } from 'react-native';
 
+// ✅ ONLY ICON CHANGE: use Ionicons for tab icons
+import Ionicons from '@expo/vector-icons/Ionicons';
+
 // Screens
 import LandingScreen from '../screens/auth/LandingScreen';
 import InviteCodeScreen from '../screens/auth/InviteCodeScreen';
@@ -21,20 +24,14 @@ import TabBarBackground from '@/components/ui/TabBarBackground';
 
 const HomeTabs = createBottomTabNavigator({
   screens: {
-    MyProfile: {
-      screen: MyProfileScreen,
-      options: {
-        title: 'Profile',
-        headerShown: false,
-        tabBarIcon: ({ color }) => <IconSymbol size={28} name="person.circle.fill" color={color} />,
-      },
-    },
     Social: {
       screen: SocialFeedScreen,
       options: {
         title: 'Social',
         headerShown: false,
-        tabBarIcon: ({ color }) => <IconSymbol size={28} name="map.fill" color={color} />,
+        tabBarIcon: ({ color, focused }) => (
+          <Ionicons name={focused ? 'home' : 'home-outline'} size={24} color={color} />
+        ),
       },
     },
     Dating: {
@@ -42,15 +39,9 @@ const HomeTabs = createBottomTabNavigator({
       options: {
         title: 'Dating',
         headerShown: false,
-        tabBarIcon: ({ color }) => <IconSymbol size={28} name="heart.fill" color={color} />,
-      },
-    },
-    Builders: {
-      screen: BuildersStack,
-      options: {
-        title: 'Builders',
-        headerShown: false,
-        tabBarIcon: ({ color }) => <IconSymbol size={28} name="hammer.fill" color={color} />,
+        tabBarIcon: ({ color, focused }) => (
+          <Ionicons name={focused ? 'heart' : 'heart-outline'} size={24} color={color} />
+        ),
       },
     },
     Chat: {
@@ -58,20 +49,48 @@ const HomeTabs = createBottomTabNavigator({
       options: {
         title: 'Chat',
         headerShown: false,
-        tabBarIcon: ({ color }) => <IconSymbol size={28} name="bubble.left.fill" color={color} />,
+        tabBarIcon: ({ color, focused }) => (
+          <Ionicons name={focused ? 'chatbubbles' : 'chatbubbles-outline'} size={24} color={color} />
+        ),
+      },
+    },
+    MyProfile: {
+      screen: MyProfileScreen,
+      options: {
+        title: 'Profile',
+        headerShown: false,
+        tabBarIcon: ({ color, focused }) => (
+          <Ionicons name={focused ? 'person' : 'person-outline'} size={24} color={color} />
+        ),
       },
     },
   },
   screenOptions: {
     headerShown: false,
-    tabBarButton: HapticTab,
-    tabBarBackground: TabBarBackground,
-    tabBarStyle: Platform.select({
-      ios: {
-        position: 'absolute' as const,
-      },
-      default: {},
-    }),
+    tabBarActiveTintColor: '#5B7FFF', // Violet/Blue from reference/chat
+    tabBarInactiveTintColor: '#8E8E93',
+    tabBarStyle: {
+      backgroundColor: 'white',
+      borderTopWidth: 0,
+      elevation: 0, // Remove shadow on Android
+      shadowOpacity: 0, // Remove shadow on iOS
+      height: 80,
+      paddingTop: 5,
+      paddingBottom: 25,
+      // Make it look like the image (clean, white)
+    },
+    tabBarLabelStyle: {
+      fontSize: 12,
+      fontWeight: '500',
+      marginBottom: 0,
+      marginTop: 5,
+    },
+    tabBarIconStyle: {
+      marginTop: 5,
+    },
+    // Remove the custom background/button to simplify to match the clean vector image
+    // tabBarButton: HapticTab,
+    // tabBarBackground: TabBarBackground,
   },
 });
 
