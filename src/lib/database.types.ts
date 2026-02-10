@@ -50,6 +50,39 @@ export interface Database {
                     }
                 ]
             }
+            builders: {
+                Row: {
+                    created_at: string
+                    description: string | null
+                    id: string
+                    location: string | null
+                    logo_url: string | null
+                    name: string
+                    owner_id: string | null
+                    website: string | null
+                }
+                Insert: {
+                    created_at?: string
+                    description?: string | null
+                    id?: string
+                    location?: string | null
+                    logo_url?: string | null
+                    name: string
+                    owner_id?: string | null
+                    website?: string | null
+                }
+                Update: {
+                    created_at?: string
+                    description?: string | null
+                    id?: string
+                    location?: string | null
+                    logo_url?: string | null
+                    name?: string
+                    owner_id?: string | null
+                    website?: string | null
+                }
+                Relationships: []
+            }
             chat_messages: {
                 Row: {
                     chat_id: string
@@ -143,6 +176,74 @@ export interface Database {
                     id?: string
                     is_group?: boolean | null
                     name?: string | null
+                }
+                Relationships: []
+            }
+            event_participants: {
+                Row: {
+                    event_id: string
+                    joined_at: string
+                    status: string | null
+                    user_id: string
+                }
+                Insert: {
+                    event_id: string
+                    joined_at?: string
+                    status?: string | null
+                    user_id: string
+                }
+                Update: {
+                    event_id?: string
+                    joined_at?: string
+                    status?: string | null
+                    user_id?: string
+                }
+                Relationships: [
+                    {
+                        foreignKeyName: "event_participants_event_id_fkey"
+                        columns: ["event_id"]
+                        isOneToOne: false
+                        referencedRelation: "events"
+                        referencedColumns: ["id"]
+                    }
+                ]
+            }
+            events: {
+                Row: {
+                    activity_type: string | null
+                    created_at: string
+                    created_by: string | null
+                    description: string | null
+                    end_time: string | null
+                    id: string
+                    image_url: string | null
+                    location: string | null
+                    start_time: string | null
+                    title: string
+                }
+                Insert: {
+                    activity_type?: string | null
+                    created_at?: string
+                    created_by?: string | null
+                    description?: string | null
+                    end_time?: string | null
+                    id?: string
+                    image_url?: string | null
+                    location?: string | null
+                    start_time?: string | null
+                    title: string
+                }
+                Update: {
+                    activity_type?: string | null
+                    created_at?: string
+                    created_by?: string | null
+                    description?: string | null
+                    end_time?: string | null
+                    id?: string
+                    image_url?: string | null
+                    location?: string | null
+                    start_time?: string | null
+                    title?: string
                 }
                 Relationships: []
             }

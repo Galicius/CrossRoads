@@ -35,7 +35,7 @@ export default function ChatScreen() {
             setCurrentUser(user);
 
             const { data, error } = await supabase
-                .from('messages')
+                .from('chat_messages')
                 .select('*')
                 .eq('chat_id', chatId)
                 .order('created_at', { ascending: false }); // Order descending for inverted list
@@ -57,7 +57,7 @@ export default function ChatScreen() {
                 {
                     event: 'INSERT',
                     schema: 'public',
-                    table: 'messages',
+                    table: 'chat_messages',
                     filter: `chat_id=eq.${chatId}`,
                 },
                 (payload) => {
@@ -91,12 +91,11 @@ export default function ChatScreen() {
 
         try {
             const { data, error } = await supabase
-                .from('messages')
+                .from('chat_messages')
                 .insert({
                     chat_id: chatId,
                     sender_id: currentUser.id,
-                    content: content,
-                    type: 'text'
+                    content: content
                 })
                 .select()
                 .single();

@@ -77,7 +77,7 @@ export default function DatingDiscoverScreen() {
             // The card expects: id, name, age, bio, images[], distance, myPath, matchPath, meetPoint
             const formattedProfiles = data?.map(p => ({
                 id: p.id,
-                name: p.name || p.full_name || 'Anonymous', // Fallback
+                name: p.full_name || p.username || 'Anonymous', // Fallback
                 age: p.age || 25,
                 bio: p.bio || 'No bio yet.',
                 images: p.images && p.images.length > 0 ? p.images : ['https://via.placeholder.com/400x600?text=No+Image'],
@@ -115,13 +115,13 @@ export default function DatingDiscoverScreen() {
                 return;
             }
 
-            if (data?.match) {
+            if (data && (data as any).match) {
                 Alert.alert("It's a Match!", `You matched with ${profiles[cardIndex].name}!`, [
                     { text: 'Keep Swiping', style: 'cancel' },
                     {
                         text: 'Send Message',
                         onPress: () => navigation.navigate('ChatDetail', {
-                            chatId: data.chat_id,
+                            chatId: (data as any).chat_id,
                             otherUserName: profiles[cardIndex].name
                         })
                     }
