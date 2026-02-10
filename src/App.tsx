@@ -7,6 +7,7 @@ import { useColorScheme } from 'react-native';
 
 import { Colors } from './constants/Colors';
 import { Navigation } from './navigation';
+import { EventsProvider } from './context/EventsContext';
 
 SplashScreen.preventAutoHideAsync();
 
@@ -24,27 +25,29 @@ export function App() {
   const theme =
     colorScheme === 'dark'
       ? {
-          ...DarkTheme,
-          colors: { ...DarkTheme.colors, primary: Colors[colorScheme ?? 'light'].tint },
-        }
+        ...DarkTheme,
+        colors: { ...DarkTheme.colors, primary: Colors[colorScheme ?? 'light'].tint },
+      }
       : {
-          ...DefaultTheme,
-          colors: { ...DefaultTheme.colors, primary: Colors[colorScheme ?? 'light'].tint },
-        };
+        ...DefaultTheme,
+        colors: { ...DefaultTheme.colors, primary: Colors[colorScheme ?? 'light'].tint },
+      };
 
   return (
-    <Navigation
-      theme={theme}
-      linking={{
-        enabled: 'auto',
-        prefixes: [
-          // Change the scheme to match your app's scheme defined in app.json
-          'helloworld://',
-        ],
-      }}
-      onReady={() => {
-        SplashScreen.hideAsync();
-      }}
-    />
+    <EventsProvider>
+      <Navigation
+        theme={theme}
+        linking={{
+          enabled: 'auto',
+          prefixes: [
+            // Change the scheme to match your app's scheme defined in app.json
+            'helloworld://',
+          ],
+        }}
+        onReady={() => {
+          SplashScreen.hideAsync();
+        }}
+      />
+    </EventsProvider >
   );
 }

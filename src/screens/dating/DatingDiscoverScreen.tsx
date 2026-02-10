@@ -75,7 +75,7 @@ export default function DatingDiscoverScreen() {
 
             // Transform data if needed to match SwipeableCard expectations
             // The card expects: id, name, age, bio, images[], distance, myPath, matchPath, meetPoint
-            const formattedProfiles = data?.map(p => ({
+            const formattedProfiles = (data as any[])?.map(p => ({
                 id: p.id,
                 name: p.full_name || p.username || 'Anonymous', // Fallback
                 age: p.age || 25,

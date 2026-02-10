@@ -1,10 +1,12 @@
 import React, { useEffect, useState } from 'react';
-import { View, Text, StyleSheet, Dimensions, ScrollView, Image, ActivityIndicator, TouchableOpacity } from 'react-native';
+import { View, Text, StyleSheet, Dimensions, ScrollView, Image, ActivityIndicator, TouchableOpacity, Alert } from 'react-native';
 import MapView, { Polyline, Marker, PROVIDER_GOOGLE } from 'react-native-maps';
 import { supabase } from '@/lib/supabase';
 import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import Svg, { Path } from 'react-native-svg';
 import { IconSymbol } from '@/components/ui/IconSymbol';
+import { useEvents } from '@/context/EventsContext';
+import Ionicons from '@expo/vector-icons/Ionicons';
 
 const { width } = Dimensions.get('window');
 
@@ -17,16 +19,13 @@ const MOCK_PATH = [
 export default function MyProfileScreen() {
     const [profile, setProfile] = useState<any>(null);
     const [loading, setLoading] = useState(true);
-    const [joinedEvents, setJoinedEvents] = useState<any[]>([]);
+    const { userEvents, leaveEvent, deleteEvent } = useEvents();
     const [activeTab, setActiveTab] = useState('Groups');
     const navigation = useNavigation<any>();
 
-    useFocusEffect(
-        React.useCallback(() => {
-            fetchProfile();
-            fetchJoinedEvents();
-        }, [])
-    );
+    useEffect(() => {
+        fetchProfile();
+    }, []);
 
     async function fetchProfile() {
         try {
@@ -51,29 +50,27 @@ export default function MyProfileScreen() {
         }
     }
 
-    async function fetchJoinedEvents() {
-        try {
-            const { data: { user } } = await supabase.auth.getUser();
-            if (!user) return;
+    const handleExitGroup = (eventId: string) => {
+        Alert.alert(
+            "Exit Group",
+            "Are you sure you want to leave this group?",
+            [
+                { text: "Cancel", style: "cancel" },
+                { text: "Exit", style: "destructive", onPress: () => leaveEvent(eventId) }
+            ]
+        );
+    };
 
-            const { data: participations } = await supabase
-                .from('event_participants')
-                .select('event_id')
-                .eq('user_id', user.id);
-
-            if (participations && participations.length > 0) {
-                const eventIds = participations.map(p => p.event_id);
-                const { data: events } = await supabase
-                    .from('events')
-                    .select('*')
-                    .in('id', eventIds);
-
-                if (events) setJoinedEvents(events);
-            }
-        } catch (error) {
-            console.log('Error fetching events:', error);
-        }
-    }
+    const handleDeleteEvent = (eventId: string) => {
+        Alert.alert(
+            "Delete Event",
+            "Are you sure you want to delete this event? This action cannot be undone.",
+            [
+                { text: "Cancel", style: "cancel" },
+                { text: "Delete", style: "destructive", onPress: () => deleteEvent(eventId) }
+            ]
+        );
+    };
 
     const [routeCoordinates, setRouteCoordinates] = useState<{ latitude: number, longitude: number }[]>([]);
 
@@ -254,25 +251,45 @@ export default function MyProfileScreen() {
                     </View>
 
                     {/* Dynamic Activity Cards or Empty State */}
-                    {joinedEvents.length > 0 ? (
-                        joinedEvents.map(event => (
-                            <View key={event.id} style={styles.activityCard}>
-                                <Text style={styles.activityTitle}>{event.title}</Text>
-                                <Text style={styles.activityDesc} numberOfLines={2}>{event.description}</Text>
-                                <View style={styles.activityFooter}>
-                                    <View style={styles.timeTag}>
-                                        <IconSymbol name="clock" size={14} color="#5659ab" />
-                                        <Text style={styles.timeText}> {new Date(event.start_time).toLocaleDateString()}</Text>
+                    {activeTab === 'Groups' && (
+                        userEvents.length > 0 ? (
+                            userEvents.map(event => (
+                                <View key={event.id} style={styles.activityCard}>
+                                    <View style={styles.cardHeaderRow}>
+                                        <Text style={styles.activityTitle}>{event.title}</Text>
+                                        <TouchableOpacity
+                                            style={styles.actionButton}
+                                            onPress={() => event.isCustom ? handleDeleteEvent(event.id) : handleExitGroup(event.id)}
+                                        >
+                                            <Ionicons
+                                                name={event.isCustom ? "trash-outline" : "exit-outline"}
+                                                size={20}
+                                                color={event.isCustom ? "#FF3B30" : "#5B7FFF"}
+                                            />
+                                        </TouchableOpacity>
+                                    </View>
+                                    <Text style={styles.activityDesc} numberOfLines={2}>{event.description}</Text>
+                                    <View style={styles.activityFooter}>
+                                        <View style={styles.timeTag}>
+                                            <IconSymbol name="clock" size={14} color="#5659ab" />
+                                            <Text style={styles.timeText}> {event.time}</Text>
+                                        </View>
                                     </View>
                                 </View>
+                            ))
+                        ) : (
+                            <View style={[styles.activityCard, { alignItems: 'center', padding: 30 }]}>
+                                <Text style={{ color: '#999', textAlign: 'center' }}>No upcoming activities joined.</Text>
+                                <TouchableOpacity onPress={() => navigation.navigate('SocialFeed')} style={{ marginTop: 10 }}>
+                                    <Text style={{ color: '#5659ab', fontWeight: 'bold' }}>Find Events</Text>
+                                </TouchableOpacity>
                             </View>
-                        ))
-                    ) : (
+                        )
+                    )}
+
+                    {activeTab === 'Help' && (
                         <View style={[styles.activityCard, { alignItems: 'center', padding: 30 }]}>
-                            <Text style={{ color: '#999', textAlign: 'center' }}>No upcoming activities joined.</Text>
-                            <TouchableOpacity onPress={() => navigation.navigate('SocialFeed')} style={{ marginTop: 10 }}>
-                                <Text style={{ color: '#5659ab', fontWeight: 'bold' }}>Find Events</Text>
-                            </TouchableOpacity>
+                            <Text style={{ color: '#999', textAlign: 'center' }}>No help requests active.</Text>
                         </View>
                     )}
 
@@ -369,7 +386,24 @@ const styles = StyleSheet.create({
         shadowRadius: 10,
         marginBottom: 20
     },
-    activityTitle: { fontSize: 20, fontWeight: 'bold', color: '#333' },
+    cardHeaderRow: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'flex-start',
+        marginBottom: 8,
+    },
+    actionButton: {
+        padding: 5,
+        marginTop: -5,
+        marginRight: -5,
+    },
+    activityTitle: {
+        fontSize: 20,
+        fontWeight: 'bold',
+        color: '#333',
+        flex: 1,
+        marginRight: 10
+    },
     activityDesc: { fontSize: 14, color: '#666', marginTop: 5, lineHeight: 20 },
     activityFooter: { flexDirection: 'column', marginTop: 15, gap: 10 },
     members: { flexDirection: 'row', alignItems: 'center' },
