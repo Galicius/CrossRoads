@@ -284,12 +284,15 @@ const styles = StyleSheet.create({
         flex: 1,
         alignItems: 'center',
         justifyContent: 'center',
+        paddingBottom: 140,
     },
     cardWrapper: {
         position: 'absolute',
-        top: 60, // Safe area ish
-        width: width,
+        top: 50,
+        width: width * 0.90,
+        height: height * 0.74,
         alignItems: 'center',
+        alignSelf: 'center',
     },
     buttonsContainer: {
         position: 'absolute',
@@ -297,6 +300,8 @@ const styles = StyleSheet.create({
         flexDirection: 'row',
         width: '100%',
         justifyContent: 'space-evenly',
+        zIndex: 50,
+
     },
     button: {
         width: 60,

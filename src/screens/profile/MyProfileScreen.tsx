@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { View, Text, StyleSheet, Dimensions, ScrollView, Image, ActivityIndicator, TouchableOpacity, Alert } from 'react-native';
+import { View, Text, StyleSheet, Dimensions, ScrollView, Image, ActivityIndicator, TouchableOpacity, Alert, TextInput } from 'react-native';
 import MapView, { Polyline, Marker, PROVIDER_GOOGLE } from 'react-native-maps';
 import { supabase } from '@/lib/supabase';
 import { useNavigation, useFocusEffect } from '@react-navigation/native';
@@ -26,6 +26,9 @@ export default function MyProfileScreen() {
     const { isPro } = useRevenueCat();
     const [activeTab, setActiveTab] = useState('Groups');
     const [showQR, setShowQR] = useState(false);
+    const [dailyActivity, setDailyActivity] = useState('');
+    const [dailyCategory, setDailyCategory] = useState('Sport');
+    const [isSavingActivity, setIsSavingActivity] = useState(false);
     const navigation = useNavigation<any>();
 
     useEffect(() => {
@@ -48,12 +51,63 @@ export default function MyProfileScreen() {
                 .single();
 
             if (data) setProfile(data);
+
+            // Fetch daily activity
+            const { data: activityData } = await supabase
+                .from('daily_activities')
+                .select('*')
+                .eq('user_id', user.id)
+                .single();
+
+            if (activityData) {
+                setDailyActivity(activityData.content);
+                setDailyCategory(activityData.category);
+            }
         } catch (error) {
             console.log('Error fetching profile:', error);
         } finally {
             setLoading(false);
         }
     }
+
+    const saveDailyActivity = async () => {
+        if (!dailyActivity.trim()) {
+            Alert.alert('Error', 'Please enter what you want to do today.');
+            return;
+        }
+
+        try {
+            setIsSavingActivity(true);
+            const { data: { user } } = await supabase.auth.getUser();
+            if (!user) return;
+
+            const { error } = await supabase
+                .from('daily_activities')
+                .upsert({
+                    user_id: user.id,
+                    content: dailyActivity,
+                    category: dailyCategory,
+                    created_at: new Date().toISOString()
+                });
+
+            if (error) throw error;
+
+            Alert.alert('Success', 'Activity saved!', [
+                { text: 'OK' },
+                {
+                    text: 'Find Friends',
+                    onPress: () => navigation.navigate('Social', {
+                        activeTab: 'People',
+                        category: dailyCategory
+                    })
+                }
+            ]);
+        } catch (error: any) {
+            Alert.alert('Error', error.message);
+        } finally {
+            setIsSavingActivity(false);
+        }
+    };
 
     const handleExitGroup = (eventId: string) => {
         Alert.alert(
@@ -258,7 +312,7 @@ export default function MyProfileScreen() {
 
                 {/* Tabs */}
                 <View style={styles.tabsContainer}>
-                    {['Help', 'Groups'].map(tab => (
+                    {['Social', 'Help', 'Groups'].map(tab => (
                         <TouchableOpacity key={tab} onPress={() => setActiveTab(tab)} style={[styles.tab, activeTab === tab && styles.activeTab]}>
                             <Text style={[styles.tabText, activeTab === tab && styles.activeTabText]}>{tab}</Text>
                         </TouchableOpacity>
@@ -306,6 +360,56 @@ export default function MyProfileScreen() {
                                 </TouchableOpacity>
                             </View>
                         )
+                    )}
+
+                    {activeTab === 'Social' && (
+                        <View style={styles.activityCard}>
+                            <Text style={styles.socialPrompt}>What do you want to do today?</Text>
+                            <TextInput
+                                style={styles.socialInput}
+                                placeholder="e.g. I want to go on a 5 hour hike"
+                                value={dailyActivity}
+                                onChangeText={setDailyActivity}
+                                multiline
+                            />
+
+                            <Text style={styles.categoryLabel}>Category</Text>
+                            <View style={styles.categoryRow}>
+                                {['Sport', 'Art', 'Tech', 'Music'].map(cat => (
+                                    <TouchableOpacity
+                                        key={cat}
+                                        style={[styles.categoryBtn, dailyCategory === cat && styles.activeCategoryBtn]}
+                                        onPress={() => setDailyCategory(cat)}
+                                    >
+                                        <Text style={[styles.categoryBtnText, dailyCategory === cat && styles.activeCategoryBtnText]}>{cat}</Text>
+                                    </TouchableOpacity>
+                                ))}
+                            </View>
+
+                            <TouchableOpacity
+                                style={styles.saveBtn}
+                                onPress={saveDailyActivity}
+                                disabled={isSavingActivity}
+                            >
+                                {isSavingActivity ? (
+                                    <ActivityIndicator color="white" />
+                                ) : (
+                                    <Text style={styles.saveBtnText}>Save Activity</Text>
+                                )}
+                            </TouchableOpacity>
+
+                            {dailyActivity && !isSavingActivity && (
+                                <TouchableOpacity
+                                    style={styles.findFriendBtn}
+                                    onPress={() => navigation.navigate('Social', {
+                                        activeTab: 'People',
+                                        category: dailyCategory
+                                    })}
+                                >
+                                    <Text style={styles.findFriendBtnText}>Find Friends</Text>
+                                </TouchableOpacity>
+                            )}
+                        </View>
                     )}
 
                     {activeTab === 'Help' && (
@@ -493,5 +597,50 @@ const styles = StyleSheet.create({
     memberAvatar: { width: 24, height: 24, borderRadius: 12, marginRight: -8, borderWidth: 1, borderColor: 'white' },
     memberCount: { fontSize: 12, color: '#aaa', marginLeft: 15 },
     timeTag: { flexDirection: 'row', alignItems: 'center' },
-    timeText: { fontSize: 13, color: '#4d73ba', marginLeft: 5, fontWeight: '600' }
+    timeText: { fontSize: 13, color: '#4d73ba', marginLeft: 5, fontWeight: '600' },
+
+    // Social Tab Styles
+    socialPrompt: { fontSize: 18, fontWeight: 'bold', color: '#333', marginBottom: 15 },
+    socialInput: {
+        backgroundColor: '#f5f5ff',
+        borderRadius: 12,
+        padding: 15,
+        fontSize: 16,
+        color: '#333',
+        minHeight: 100,
+        textAlignVertical: 'top',
+        marginBottom: 20
+    },
+    categoryLabel: { fontSize: 14, fontWeight: '600', color: '#666', marginBottom: 10 },
+    categoryRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 10, marginBottom: 25 },
+    categoryBtn: {
+        paddingHorizontal: 15,
+        paddingVertical: 8,
+        borderRadius: 20,
+        backgroundColor: '#f0f0f0',
+        borderWidth: 1,
+        borderColor: '#ddd'
+    },
+    activeCategoryBtn: {
+        backgroundColor: '#4d73ba',
+        borderColor: '#4d73ba'
+    },
+    categoryBtnText: { fontSize: 14, color: '#666' },
+    activeCategoryBtnText: { color: 'white', fontWeight: 'bold' },
+    saveBtn: {
+        backgroundColor: '#4d73ba',
+        padding: 16,
+        borderRadius: 12,
+        alignItems: 'center',
+        marginBottom: 10
+    },
+    saveBtnText: { color: 'white', fontWeight: 'bold', fontSize: 16 },
+    findFriendBtn: {
+        padding: 12,
+        borderRadius: 12,
+        alignItems: 'center',
+        borderWidth: 1,
+        borderColor: '#4d73ba'
+    },
+    findFriendBtnText: { color: '#4d73ba', fontWeight: 'bold' }
 });

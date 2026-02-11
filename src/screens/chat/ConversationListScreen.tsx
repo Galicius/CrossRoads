@@ -1,15 +1,16 @@
 import React, { useEffect, useState } from 'react';
 import { View, Text, StyleSheet, FlatList, TouchableOpacity, ActivityIndicator, Image } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
+import Ionicons from '@expo/vector-icons/Ionicons';
 import { supabase } from '../../lib/supabase';
 import { IconSymbol } from '@/components/ui/IconSymbol';
 
 type ChatType = 'dating' | 'social' | 'builder';
 
-const TABS: { key: ChatType; label: string; icon: string; emptyText: string }[] = [
-    { key: 'dating', label: 'Dating', icon: '❤️', emptyText: 'No matches yet. Go swipe!' },
-    { key: 'social', label: 'Social', icon: '👋', emptyText: 'No social chats yet. Connect with fellow travelers!' },
-    { key: 'builder', label: 'Builders', icon: '🔧', emptyText: 'No builder chats yet. Find help in the Builders tab!' },
+const TABS: { key: ChatType; label: string; icon: any; emptyText: string }[] = [
+    { key: 'dating', label: 'Dating', icon: 'heart', emptyText: 'No matches yet. Go swipe!' },
+    { key: 'social', label: 'Social', icon: 'people', emptyText: 'No social chats yet. Connect with fellow travelers!' },
+    { key: 'builder', label: 'Builders', icon: 'construct', emptyText: 'No builder chats yet. Find help in the Builders tab!' },
 ];
 
 export default function ConversationListScreen() {
@@ -99,7 +100,12 @@ export default function ConversationListScreen() {
                             setInitialLoad(true);
                         }}
                     >
-                        <Text style={styles.tabIcon}>{tab.icon}</Text>
+                        <Ionicons
+                            name={activeTab === tab.key ? tab.icon : `${tab.icon}-outline`}
+                            size={20}
+                            color={activeTab === tab.key ? '#4d73ba' : '#8E8E93'}
+                            style={{ marginBottom: 4 }}
+                        />
                         <Text style={[styles.tabLabel, activeTab === tab.key && styles.activeTabLabel]}>
                             {tab.label}
                         </Text>
@@ -109,10 +115,10 @@ export default function ConversationListScreen() {
             </View>
 
             {loading ? (
-                <View style={styles.center}><ActivityIndicator /></View>
+                <View style={styles.center}><ActivityIndicator color="#4d73ba" /></View>
             ) : conversations.length === 0 ? (
                 <View style={styles.center}>
-                    <Text style={styles.emptyIcon}>{activeTabConfig.icon}</Text>
+                    <Ionicons name={activeTabConfig.icon} size={48} color="#D1D5DB" style={{ marginBottom: 12 }} />
                     <Text style={styles.emptyText}>{activeTabConfig.emptyText}</Text>
                 </View>
             ) : (
@@ -172,7 +178,7 @@ const styles = StyleSheet.create({
         paddingTop: 50,
         paddingBottom: 15,
         paddingHorizontal: 20,
-        backgroundColor: '#F8F9FA'
+        backgroundColor: 'white'
     },
     headerTitle: {
         fontSize: 32,
@@ -208,7 +214,7 @@ const styles = StyleSheet.create({
         color: '#8E8E93',
     },
     activeTabLabel: {
-        color: '#5B7FFF',
+        color: '#4d73ba',
         fontWeight: '700',
     },
     tabIndicator: {
@@ -217,7 +223,7 @@ const styles = StyleSheet.create({
         left: '20%',
         right: '20%',
         height: 3,
-        backgroundColor: '#5B7FFF',
+        backgroundColor: '#4d73ba',
         borderTopLeftRadius: 3,
         borderTopRightRadius: 3,
     },
