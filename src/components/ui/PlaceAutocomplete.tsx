@@ -35,21 +35,33 @@ export function PlaceAutocomplete({ onSelect, placeholder = "Search for a city..
 
         setLoading(true);
         try {
-            // Using OpenStreetMap Nominatim API
-            // Note: Please respect Usage Policy - No heavy usage.
+            // Using Open-Meteo Geocoding API as a more reliable free alternative to Nominatim
             const response = await fetch(
-                `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(text)}&addressdetails=1&limit=5`,
-                {
-                    headers: {
-                        'User-Agent': 'CrossRoadsApp/1.0'
-                    }
-                }
+                `https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(text)}&count=5&language=en&format=json`
             );
+
             const data = await response.json();
-            setResults(data);
-            setShowResults(true);
+
+            if (data.results) {
+                // Map OpenMeteo format to our internal Place interface
+                const mappedResults: Place[] = data.results.map((item: any) => ({
+                    place_id: item.id,
+                    lat: item.latitude.toString(),
+                    lon: item.longitude.toString(),
+                    display_name: `${item.name}, ${item.admin1 ? item.admin1 + ', ' : ''}${item.country}`,
+                    address: {
+                        city: item.name,
+                        country: item.country
+                    }
+                }));
+                setResults(mappedResults);
+                setShowResults(true);
+            } else {
+                setResults([]);
+            }
         } catch (error) {
             console.error('Error searching places:', error);
+            setResults([]);
         } finally {
             setLoading(false);
         }
