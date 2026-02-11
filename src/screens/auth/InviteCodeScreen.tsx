@@ -1,7 +1,8 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useLayoutEffect } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Alert, TextInput, KeyboardAvoidingView, Platform } from 'react-native';
 import { CameraView, Camera } from 'expo-camera';
 import { useNavigation } from '@react-navigation/native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { supabase } from '@/lib/supabase';
 import Ionicons from '@expo/vector-icons/Ionicons';
 
@@ -12,6 +13,13 @@ export default function InviteCodeScreen() {
     const [manualCode, setManualCode] = useState('');
     const [validating, setValidating] = useState(false);
     const navigation = useNavigation<any>();
+    const insets = useSafeAreaInsets();
+
+    useLayoutEffect(() => {
+        navigation.setOptions({
+            headerShown: false,
+        });
+    }, [navigation]);
 
     useEffect(() => {
         const getPermissions = async () => {
@@ -75,20 +83,27 @@ export default function InviteCodeScreen() {
             style={styles.container}
             behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
         >
+            <TouchableOpacity
+                style={[styles.backButton, { marginTop: insets.top + 10 }]}
+                onPress={() => navigation.goBack()}
+            >
+                <Ionicons name="arrow-back" size={24} color="#1A1A1A" />
+            </TouchableOpacity>
+
             {/* Tab Switcher */}
             <View style={styles.tabRow}>
                 <TouchableOpacity
                     style={[styles.tab, mode === 'scanner' && styles.activeTab]}
                     onPress={() => setMode('scanner')}
                 >
-                    <Ionicons name="qr-code-outline" size={18} color={mode === 'scanner' ? '#5659ab' : '#999'} />
+                    <Ionicons name="qr-code-outline" size={18} color={mode === 'scanner' ? '#4d73ba' : '#999'} />
                     <Text style={[styles.tabText, mode === 'scanner' && styles.activeTabText]}>Scan QR</Text>
                 </TouchableOpacity>
                 <TouchableOpacity
                     style={[styles.tab, mode === 'manual' && styles.activeTab]}
                     onPress={() => setMode('manual')}
                 >
-                    <Ionicons name="keypad-outline" size={18} color={mode === 'manual' ? '#5659ab' : '#999'} />
+                    <Ionicons name="keypad-outline" size={18} color={mode === 'manual' ? '#4d73ba' : '#999'} />
                     <Text style={[styles.tabText, mode === 'manual' && styles.activeTabText]}>Enter Code</Text>
                 </TouchableOpacity>
             </View>
@@ -131,7 +146,7 @@ export default function InviteCodeScreen() {
             ) : (
                 <View style={styles.manualContainer}>
                     <View style={styles.manualCard}>
-                        <Ionicons name="ticket-outline" size={48} color="#5659ab" style={{ marginBottom: 15 }} />
+                        <Ionicons name="ticket-outline" size={48} color="#4d73ba" style={{ marginBottom: 15 }} />
                         <Text style={styles.manualTitle}>Enter Invite Code</Text>
                         <Text style={styles.manualSubtitle}>
                             Ask an existing CrossRoads nomad for their invite code
@@ -188,10 +203,10 @@ const styles = StyleSheet.create({
     activeTab: {
         backgroundColor: '#eef0ff',
         borderWidth: 1.5,
-        borderColor: '#5659ab',
+        borderColor: '#4d73ba',
     },
     tabText: { fontSize: 14, color: '#999', fontWeight: '600' },
-    activeTabText: { color: '#5659ab' },
+    activeTabText: { color: '#4d73ba' },
 
     // Scanner mode
     scannerContainer: { flex: 1, margin: 20, borderRadius: 20, overflow: 'hidden' },
@@ -222,7 +237,7 @@ const styles = StyleSheet.create({
         alignSelf: 'center',
         flexDirection: 'row',
         alignItems: 'center',
-        backgroundColor: '#5659ab',
+        backgroundColor: '#4d73ba',
         paddingHorizontal: 20,
         paddingVertical: 12,
         borderRadius: 25,
@@ -233,7 +248,7 @@ const styles = StyleSheet.create({
     // No camera
     noCamera: { flex: 1, justifyContent: 'center', alignItems: 'center' },
     noCameraText: { color: '#999', fontSize: 16, marginTop: 10 },
-    switchText: { color: '#5659ab', fontWeight: '600', marginTop: 15 },
+    switchText: { color: '#4d73ba', fontWeight: '600', marginTop: 15 },
 
     // Manual mode
     manualContainer: { flex: 1, justifyContent: 'center', padding: 20 },
@@ -265,7 +280,7 @@ const styles = StyleSheet.create({
     },
     verifyBtn: {
         width: '100%',
-        backgroundColor: '#5659ab',
+        backgroundColor: '#4d73ba',
         borderRadius: 14,
         paddingVertical: 16,
         alignItems: 'center',
@@ -273,4 +288,10 @@ const styles = StyleSheet.create({
     },
     verifyBtnDisabled: { opacity: 0.5 },
     verifyBtnText: { color: 'white', fontSize: 16, fontWeight: 'bold' },
+    backButton: {
+        alignSelf: 'flex-start',
+        marginLeft: 20,
+        marginBottom: 10,
+        padding: 5,
+    },
 });
