@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, FlatList, TouchableOpacity, Image, TextInput, ScrollView, Modal, TouchableWithoutFeedback, Keyboard, Platform } from 'react-native';
+import { View, Text, StyleSheet, FlatList, TouchableOpacity, TextInput, ScrollView, Modal, TouchableWithoutFeedback, Keyboard, Platform } from 'react-native';
+import { Image } from 'expo-image';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { useEvents, Event } from '@/context/EventsContext';
@@ -212,7 +213,7 @@ export default function SocialFeedScreen() {
             const eventItem = item as Event;
             return (
                 <View style={styles.eventCard}>
-                    <Image source={{ uri: eventItem.image_url }} style={styles.eventImage} />
+                    <Image source={require('@/assets/images/activity.jpg')} style={styles.eventImage} />
                     <View style={styles.eventContent}>
                         <View style={styles.titleRow}>
                             <Text style={styles.eventTitle}>{eventItem.title}</Text>
@@ -274,79 +275,88 @@ export default function SocialFeedScreen() {
     };
 
     return (
-        <View style={[styles.container, { paddingTop: insets.top }]}>
-            {/* Header Area */}
-            <View style={styles.headerArea}>
-                <View style={styles.headerTop}>
-                    <Text style={styles.screenTitle}>Discover</Text>
-                </View>
+        <View style={styles.container}>
+            <Image
+                source={require('@/assets/images/image.jpg')}
+                style={StyleSheet.absoluteFill}
+                contentFit="cover"
+                contentPosition="center"
 
-                {/* Tabs */}
-                <View style={styles.tabsRow}>
-                    {TABS.map(tab => (
-                        <TouchableOpacity
-                            key={tab}
-                            style={[styles.tab, activeTab === tab && styles.activeTab]}
-                            onPress={() => setActiveTab(tab)}
-                        >
-                            <Text style={[styles.tabText, activeTab === tab && styles.activeTabText]}>
-                                {tab}
-                            </Text>
-                            {activeTab === tab && <View style={styles.activeLine} />}
-                        </TouchableOpacity>
-                    ))}
-                </View>
-            </View>
-
-            {/* Main Content Area */}
-            <View style={styles.contentContainer}>
-                {/* Search & Filter */}
-                <View style={styles.searchRow}>
-                    <View style={styles.searchBar}>
-                        <Ionicons name="search-outline" size={20} color="#999" style={{ marginRight: 8 }} />
-                        <TextInput
-                            placeholder="Find groups and events..."
-                            placeholderTextColor="#999"
-                            style={styles.input}
-                            value={searchText}
-                            onChangeText={setSearchText}
-                        />
+            />
+            <View style={{ paddingTop: insets.top, flex: 1 }}>
+                {/* Header Area */}
+                <View style={styles.headerArea}>
+                    <View style={styles.headerTop}>
+                        <Text style={styles.screenTitle}>Discover</Text>
                     </View>
-                    <TouchableOpacity style={styles.filterBtn} onPress={() => setFilterModalVisible(true)}>
-                        <Ionicons name="options-outline" size={24} color="#999" />
-                    </TouchableOpacity>
+
+                    {/* Tabs */}
+                    <View style={styles.tabsRow}>
+                        {TABS.map(tab => (
+                            <TouchableOpacity
+                                key={tab}
+                                style={[styles.tab, activeTab === tab && styles.activeTab]}
+                                onPress={() => setActiveTab(tab)}
+                            >
+                                <Text style={[styles.tabText, activeTab === tab && styles.activeTabText]}>
+                                    {tab}
+                                </Text>
+                                {activeTab === tab && <View style={styles.activeLine} />}
+                            </TouchableOpacity>
+                        ))}
+                    </View>
                 </View>
 
-                {/* Selected Filters / 'All' Display */}
-                <View style={styles.tagsContainer}>
-                    <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ paddingHorizontal: 20 }}>
-                        {selectedCategories.length === 0 ? (
-                            <View style={styles.tagBadge}>
-                                <Ionicons name="layers-outline" size={16} color="white" style={{ marginRight: 6 }} />
-                                <Text style={styles.tagText}>All</Text>
-                            </View>
-                        ) : (
-                            selectedCategories.map((cat, index) => {
-                                const tagInfo = TAGS.find(t => t.name === cat);
-                                return (
-                                    <View key={index} style={styles.tagBadge}>
-                                        <Ionicons name={(tagInfo?.icon || 'pricetag-outline') as any} size={16} color="white" style={{ marginRight: 6 }} />
-                                        <Text style={styles.tagText}>{cat}</Text>
-                                    </View>
-                                );
-                            })
-                        )}
-                    </ScrollView>
-                </View>
+                {/* Main Content Area */}
+                <View style={styles.contentContainer}>
+                    {/* Search & Filter */}
+                    <View style={styles.searchRow}>
+                        <View style={styles.searchBar}>
+                            <Ionicons name="search-outline" size={20} color="#999" style={{ marginRight: 8 }} />
+                            <TextInput
+                                placeholder="Find groups and events..."
+                                placeholderTextColor="#999"
+                                style={styles.input}
+                                value={searchText}
+                                onChangeText={setSearchText}
+                            />
+                        </View>
+                        <TouchableOpacity style={styles.filterBtn} onPress={() => setFilterModalVisible(true)}>
+                            <Ionicons name="options-outline" size={24} color="#999" />
+                        </TouchableOpacity>
+                    </View>
 
-                {/* List */}
-                <FlatList
-                    data={getFilteredData()}
-                    renderItem={renderItem}
-                    keyExtractor={item => item.id}
-                    contentContainerStyle={styles.listContent}
-                    showsVerticalScrollIndicator={false}
-                />
+                    {/* Selected Filters / 'All' Display */}
+                    <View style={styles.tagsContainer}>
+                        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ paddingHorizontal: 20 }}>
+                            {selectedCategories.length === 0 ? (
+                                <View style={styles.tagBadge}>
+                                    <Ionicons name="layers-outline" size={16} color="white" style={{ marginRight: 6 }} />
+                                    <Text style={styles.tagText}>All</Text>
+                                </View>
+                            ) : (
+                                selectedCategories.map((cat, index) => {
+                                    const tagInfo = TAGS.find(t => t.name === cat);
+                                    return (
+                                        <View key={index} style={styles.tagBadge}>
+                                            <Ionicons name={(tagInfo?.icon || 'pricetag-outline') as any} size={16} color="white" style={{ marginRight: 6 }} />
+                                            <Text style={styles.tagText}>{cat}</Text>
+                                        </View>
+                                    );
+                                })
+                            )}
+                        </ScrollView>
+                    </View>
+
+                    {/* List */}
+                    <FlatList
+                        data={getFilteredData()}
+                        renderItem={renderItem}
+                        keyExtractor={item => item.id}
+                        contentContainerStyle={styles.listContent}
+                        showsVerticalScrollIndicator={false}
+                    />
+                </View>
             </View>
 
             {/* Floating Action Button */}
@@ -544,7 +554,8 @@ export default function SocialFeedScreen() {
 const styles = StyleSheet.create({
     container: {
         flex: 1,
-        backgroundColor: '#E5E5EA',
+        backgroundColor: '#E5E5EA', // Fallback
+
     },
     headerArea: {
         paddingHorizontal: 20,
@@ -556,6 +567,7 @@ const styles = StyleSheet.create({
         justifyContent: 'space-between',
         alignItems: 'center',
         marginBottom: 20,
+        paddingBottom: 10,
     },
     screenTitle: {
         fontSize: 32,
@@ -964,4 +976,4 @@ const styles = StyleSheet.create({
         fontWeight: '600',
         flex: 1,
     },
-});
+}); 

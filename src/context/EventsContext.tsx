@@ -49,6 +49,12 @@ export const EventsProvider = ({ children }: { children: ReactNode }) => {
 
     useEffect(() => {
         fetchEvents();
+
+        const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+            fetchEvents();
+        });
+
+        return () => subscription.unsubscribe();
     }, []);
 
     const fetchEvents = async () => {
