@@ -208,6 +208,9 @@ export default function ChatScreen() {
                             <IconSymbol name="face.smiling" size={24} color="#8E8E93" />
                         </TouchableOpacity>
                     </View>
+                    <TouchableOpacity onPress={sendMessage} style={styles.sendButton} disabled={!text.trim()}>
+                        <IconSymbol name="paperplane.fill" size={24} color={text.trim() ? "#5B7FFF" : "#8E8E93"} />
+                    </TouchableOpacity>
                 </View>
             </KeyboardAvoidingView>
         </View>

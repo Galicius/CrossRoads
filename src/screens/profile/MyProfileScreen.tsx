@@ -6,7 +6,10 @@ import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import Svg, { Path } from 'react-native-svg';
 import { IconSymbol } from '@/components/ui/IconSymbol';
 import { useEvents } from '@/context/EventsContext';
+import { useRevenueCat } from '@/context/RevenueCatContext';
 import Ionicons from '@expo/vector-icons/Ionicons';
+import * as Clipboard from 'expo-clipboard';
+import QRCode from 'react-native-qrcode-svg';
 
 const { width } = Dimensions.get('window');
 
@@ -20,7 +23,9 @@ export default function MyProfileScreen() {
     const [profile, setProfile] = useState<any>(null);
     const [loading, setLoading] = useState(true);
     const { userEvents, leaveEvent, deleteEvent } = useEvents();
+    const { isPro } = useRevenueCat();
     const [activeTab, setActiveTab] = useState('Groups');
+    const [showQR, setShowQR] = useState(false);
     const navigation = useNavigation<any>();
 
     useEffect(() => {
@@ -227,12 +232,28 @@ export default function MyProfileScreen() {
                     </Text>
 
                     <View style={styles.badges}>
-                        {[1, 2, 3].map((item) => (
-                            <View key={item} style={styles.badgeCircle}>
-                                <Image source={{ uri: 'https://cdn-icons-png.flaticon.com/512/3063/3063822.png' }} style={{ width: 25, height: 25, opacity: 0.8 }} />
+                        {/* Verified Nomad Badge */}
+                        <View style={[styles.badgeItem, !profile?.is_verified && styles.badgeLocked]}>
+                            <View style={[styles.badgeCircle, profile?.is_verified ? styles.badgeVerified : styles.badgeDimmed]}>
+                                <Ionicons name="checkmark-circle" size={26} color={profile?.is_verified ? '#fff' : '#ccc'} />
                             </View>
-                        ))}
+                            <Text style={[styles.badgeLabel, !profile?.is_verified && styles.badgeLabelDimmed]}>
+                                Verified
+                            </Text>
+                        </View>
+
+                        {/* Pro Badge */}
+                        <View style={[styles.badgeItem, !isPro && styles.badgeLocked]}>
+                            <View style={[styles.badgeCircle, isPro ? styles.badgePro : styles.badgeDimmed]}>
+                                <Ionicons name="flash" size={26} color={isPro ? '#fff' : '#ccc'} />
+                            </View>
+                            <Text style={[styles.badgeLabel, !isPro && styles.badgeLabelDimmed]}>
+                                Pro
+                            </Text>
+                        </View>
                     </View>
+
+
                 </View>
 
                 {/* Tabs */}
@@ -295,6 +316,45 @@ export default function MyProfileScreen() {
 
                 </View>
 
+                {/* Invite Code Sharing */}
+                {profile?.invite_code && (
+                    <View style={styles.inviteCard}>
+                        <View style={styles.inviteHeader}>
+                            <Ionicons name="people-outline" size={20} color="#5659ab" />
+                            <Text style={styles.inviteTitle}>Your Invite Code</Text>
+                        </View>
+                        <Text style={styles.inviteSubtitle}>Share with new nomads to verify them</Text>
+
+                        <View style={styles.codeRow}>
+                            <Text style={styles.codeText}>{profile.invite_code}</Text>
+                            <TouchableOpacity
+                                style={styles.copyBtn}
+                                onPress={async () => {
+                                    await Clipboard.setStringAsync(profile.invite_code);
+                                    Alert.alert('Copied!', 'Invite code copied to clipboard.');
+                                }}
+                            >
+                                <Ionicons name="copy-outline" size={18} color="#5659ab" />
+                                <Text style={styles.copyBtnText}>Copy</Text>
+                            </TouchableOpacity>
+                        </View>
+
+                        <TouchableOpacity
+                            style={styles.qrToggle}
+                            onPress={() => setShowQR(!showQR)}
+                        >
+                            <Ionicons name={showQR ? "chevron-up" : "qr-code-outline"} size={16} color="#5659ab" />
+                            <Text style={styles.qrToggleText}>{showQR ? 'Hide QR' : 'Show QR Code'}</Text>
+                        </TouchableOpacity>
+
+                        {showQR && (
+                            <View style={styles.qrContainer}>
+                                <QRCode value={profile.invite_code} size={160} backgroundColor="white" color="#333" />
+                                <Text style={styles.qrHint}>New users can scan this to get verified</Text>
+                            </View>
+                        )}
+                    </View>
+                )}
             </ScrollView>
         </View>
     );
@@ -357,12 +417,35 @@ const styles = StyleSheet.create({
     infoContainer: { alignItems: 'center', marginTop: 10 },
     name: { fontSize: 26, fontWeight: 'bold', color: '#222' },
     location: { fontSize: 14, color: 'gray', marginTop: 5 },
-    badges: { flexDirection: 'row', marginTop: 20, gap: 20 },
+    badges: { flexDirection: 'row', marginTop: 20, gap: 24, justifyContent: 'center' },
+    badgeItem: { alignItems: 'center', gap: 4 },
+    badgeLocked: { opacity: 0.4 },
     badgeCircle: {
-        width: 50, height: 50, borderRadius: 25, backgroundColor: '#fbeab5',
-        alignItems: 'center', justifyContent: 'center', borderWidth: 2, borderColor: '#fff'
+        width: 50, height: 50, borderRadius: 25,
+        alignItems: 'center', justifyContent: 'center', borderWidth: 2, borderColor: '#fff',
+        elevation: 2, shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.1, shadowRadius: 3,
     },
-    badgeCircle2: { backgroundColor: '#e0e0ff' },
+    badgeVerified: { backgroundColor: '#34C759' },
+    badgePro: { backgroundColor: '#FFD700' },
+    badgeDimmed: { backgroundColor: '#e8e8e8' },
+    badgeLabel: { fontSize: 11, fontWeight: '600', color: '#555' },
+    badgeLabelDimmed: { color: '#bbb' },
+
+    inviteCard: {
+        marginTop: 20, marginHorizontal: 20, backgroundColor: 'white', borderRadius: 16,
+        padding: 18, elevation: 2, shadowColor: '#000', shadowOpacity: 0.05, shadowRadius: 8,
+    },
+    inviteHeader: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+    inviteTitle: { fontSize: 16, fontWeight: 'bold', color: '#333' },
+    inviteSubtitle: { fontSize: 12, color: '#999', marginTop: 4, marginBottom: 12 },
+    codeRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', backgroundColor: '#f5f5ff', borderRadius: 12, padding: 14 },
+    codeText: { fontSize: 22, fontWeight: 'bold', letterSpacing: 3, color: '#5659ab' },
+    copyBtn: { flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: '#eef0ff', paddingHorizontal: 12, paddingVertical: 8, borderRadius: 8 },
+    copyBtnText: { fontSize: 13, fontWeight: '600', color: '#5659ab' },
+    qrToggle: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, marginTop: 12, paddingVertical: 8 },
+    qrToggleText: { fontSize: 13, color: '#5659ab', fontWeight: '600' },
+    qrContainer: { alignItems: 'center', marginTop: 10, padding: 15, backgroundColor: 'white', borderRadius: 12, borderWidth: 1, borderColor: '#eee' },
+    qrHint: { fontSize: 11, color: '#aaa', marginTop: 10 },
 
     tabsContainer: {
         flexDirection: 'row', paddingHorizontal: 40, marginTop: 30, borderBottomWidth: 1, borderBottomColor: '#eee'

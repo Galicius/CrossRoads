@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Image, KeyboardAvoidingView, Platform, TouchableWithoutFeedback, Keyboard } from 'react-native';
-import { useNavigation } from '@react-navigation/native';
+import { useNavigation, useRoute } from '@react-navigation/native';
 import { LinearGradient } from 'expo-linear-gradient'; // Install if needed, or use solid bg
 
 import { supabase } from '@/lib/supabase';
@@ -8,20 +8,31 @@ import { Alert, TextInput, ActivityIndicator } from 'react-native';
 
 export default function AuthScreen() {
     const navigation = useNavigation<any>();
+    const route = useRoute<any>();
+    const invitedBy = route.params?.invitedBy || null;
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
     const [loading, setLoading] = useState(false);
-    const [isSignUp, setIsSignUp] = useState(false);
+    const [isSignUp, setIsSignUp] = useState(!!invitedBy); // Default to sign-up if coming from invite
 
     async function handleAuth() {
         setLoading(true);
         try {
             if (isSignUp) {
-                const { error } = await supabase.auth.signUp({
+                const { error, data: signUpData } = await supabase.auth.signUp({
                     email,
                     password,
                 });
                 if (error) throw error;
+
+                // If user was invited, mark them as verified
+                if (invitedBy && signUpData.user) {
+                    await supabase
+                        .from('profiles')
+                        .update({ is_verified: true, invited_by: invitedBy })
+                        .eq('id', signUpData.user.id);
+                }
+
                 Alert.alert('Success', 'Check your email for the confirmation link!');
             } else {
                 const { error, data } = await supabase.auth.signInWithPassword({

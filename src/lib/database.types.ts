@@ -402,6 +402,9 @@ export type Database = {
                     full_name: string | null
                     id: string
                     images: string[] | null
+                    invite_code: string | null
+                    invited_by: string | null
+                    is_verified: boolean | null
                     latitude: number | null
                     longitude: number | null
                     route_data: Json | null
@@ -418,6 +421,9 @@ export type Database = {
                     full_name?: string | null
                     id: string
                     images?: string[] | null
+                    invite_code?: string | null
+                    invited_by?: string | null
+                    is_verified?: boolean | null
                     latitude?: number | null
                     longitude?: number | null
                     route_data?: Json | null
@@ -434,6 +440,9 @@ export type Database = {
                     full_name?: string | null
                     id?: string
                     images?: string[] | null
+                    invite_code?: string | null
+                    invited_by?: string | null
+                    is_verified?: boolean | null
                     latitude?: number | null
                     longitude?: number | null
                     route_data?: Json | null
@@ -443,7 +452,15 @@ export type Database = {
                     username?: string | null
                     website?: string | null
                 }
-                Relationships: []
+                Relationships: [
+                    {
+                        foreignKeyName: "profiles_invited_by_fkey"
+                        columns: ["invited_by"]
+                        isOneToOne: false
+                        referencedRelation: "profiles"
+                        referencedColumns: ["id"]
+                    },
+                ]
             }
             swipes: {
                 Row: {
