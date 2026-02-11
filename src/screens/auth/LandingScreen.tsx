@@ -1,14 +1,18 @@
 import React from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, ImageBackground } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
+import { Image } from 'expo-image';
 
 export default function LandingScreen() {
   const navigation = useNavigation<any>();
 
   return (
     <View style={styles.container}>
-      {/* Background Image Placeholder */}
-      <View style={styles.bgPlaceholder} />
+      <Image
+        source={require('@/assets/images/image.svg')}
+        style={styles.centeredImage}
+        contentFit="contain"
+      />
 
       <View style={styles.overlay}>
         <View style={styles.header}>
@@ -37,16 +41,22 @@ export default function LandingScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#333' },
-  bgPlaceholder: { ...StyleSheet.absoluteFillObject, backgroundColor: '#2a2a2a' }, // Replace with real image
-  overlay: { flex: 1, backgroundColor: 'rgba(86, 89, 171, 0.4)', justifyContent: 'space-between', padding: 30 },
-  header: { marginTop: 100 },
-  appName: { fontSize: 48, fontWeight: 'bold', color: 'white', letterSpacing: 1 },
-  tagline: { fontSize: 18, color: '#eee', marginTop: 10, lineHeight: 26 },
+  container: { flex: 1, backgroundColor: 'white' },
+  centeredImage: {
+    position: 'absolute',
+    width: '100%',
+    height: '50%',
+    top: '25%', // Center vertically approx
+    opacity: 0.8,
+  },
+  overlay: { flex: 1, justifyContent: 'space-between', padding: 30 },
+  header: { marginTop: 80 },
+  appName: { fontSize: 48, fontWeight: 'bold', color: '#4d73ba', letterSpacing: 1 },
+  tagline: { fontSize: 18, color: '#666', marginTop: 10, lineHeight: 26 },
   actions: { marginBottom: 50, gap: 15 },
   btn: { paddingVertical: 18, borderRadius: 30, alignItems: 'center' },
-  primaryBtn: { backgroundColor: '#fff' },
-  primaryBtnText: { color: '#5659ab', fontWeight: 'bold', fontSize: 16 },
-  secondaryBtn: { borderWidth: 1, borderColor: 'white', backgroundColor: 'transparent' },
-  secondaryBtnText: { color: 'white', fontWeight: 'bold', fontSize: 16 },
+  primaryBtn: { backgroundColor: '#4d73ba', shadowColor: '#000', shadowOpacity: 0.1, shadowRadius: 5, elevation: 3 },
+  primaryBtnText: { color: 'white', fontWeight: 'bold', fontSize: 16 },
+  secondaryBtn: { borderWidth: 1, borderColor: '#4d73ba', backgroundColor: 'transparent' },
+  secondaryBtnText: { color: '#4d73ba', fontWeight: 'bold', fontSize: 16 },
 });
