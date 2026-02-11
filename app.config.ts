@@ -21,7 +21,7 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
         package: 'com.galicius.crossroads',
         config: {
             googleMaps: {
-                apiKey: process.env.GOOGLE_MAPS_API_KEY,
+                apiKey: 'AIzaSyDMA97zRnjGIFhhPHlJWxoSBlfJhC6N5Uk',
             },
         },
     },
