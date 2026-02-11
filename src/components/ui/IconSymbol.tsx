@@ -27,6 +27,10 @@ const MAPPING = {
   'arrow.up': 'keyboard-arrow-up',
   'arrow.down': 'keyboard-arrow-down',
   'trash': 'delete',
+  'location.fill': 'location-on',
+  'checkmark.seal.fill': 'verified',
+  'heart.fill': 'favorite',
+  'xmark.circle.fill': 'cancel',
 } as IconMapping;
 
 /**

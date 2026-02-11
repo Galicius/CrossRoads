@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, TextInput, Image, TouchableOpacity, ScrollView, Alert, ActivityIndicator, FlatList } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useNavigation } from '@react-navigation/native';
+import { CommonActions, useNavigation } from '@react-navigation/native';
 import * as ImagePicker from 'expo-image-picker';
 import { supabase } from '@/lib/supabase';
 import { IconSymbol } from '@/components/ui/IconSymbol';
@@ -57,7 +57,7 @@ export default function EditProfileScreen() {
 
     const pickImage = async (isAvatar: boolean) => {
         const result = await ImagePicker.launchImageLibraryAsync({
-            mediaTypes: ImagePicker.MediaTypeOptions.Images,
+            mediaTypes: 'images',
             allowsEditing: isAvatar, // Crop only for avatar
             aspect: [1, 1],
             quality: 0.8,
@@ -162,10 +162,16 @@ export default function EditProfileScreen() {
 
     const handleLogout = async () => {
         const { error } = await supabase.auth.signOut();
-        if (error) Alert.alert("Error", error.message);
-        // Supabase auth state change will likely trigger app navigation reset in Auth provider
-        // But if not, we might need to manually navigate to Auth stack. 
-        // Assuming App.tsx or similar listens to onAuthStateChange.
+        if (error) {
+            Alert.alert("Error", error.message);
+            return;
+        }
+        navigation.dispatch(
+            CommonActions.reset({
+                index: 0,
+                routes: [{ name: 'Landing' }],
+            })
+        );
     };
 
     if (loading) return <View style={styles.center}><ActivityIndicator size="large" color="#5659ab" /></View>;

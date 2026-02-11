@@ -15,7 +15,8 @@
       "adaptiveIcon": {
         "foregroundImage": "src/assets/images/adaptive-icon.png",
         "backgroundColor": "#ffffff"
-      }
+      },
+      "package": "com.galicius.crossroads"
     },
     "web": {
       "favicon": "src/assets/images/favicon.png"
@@ -30,6 +31,11 @@
         }
       ],
       "@react-native-community/datetimepicker"
-    ]
+    ],
+    "extra": {
+      "eas": {
+        "projectId": "0ddd9756-27e6-4308-9a83-7c735c5e317f"
+      }
+    }
   }
 }

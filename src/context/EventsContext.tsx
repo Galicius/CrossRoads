@@ -2,6 +2,19 @@ import React, { createContext, useState, useContext, ReactNode, useEffect } from
 import { supabase } from '@/lib/supabase';
 
 // Define the Event type based on what we're using in SocialFeedScreen
+// Format a Date into a readable string like "Feb 11, 2026 at 10:30 AM"
+function formatEventDateTime(date: Date): string {
+    const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+    const month = months[date.getMonth()];
+    const day = date.getDate();
+    const year = date.getFullYear();
+    let hours = date.getHours();
+    const mins = date.getMinutes().toString().padStart(2, '0');
+    const ampm = hours >= 12 ? 'PM' : 'AM';
+    hours = hours % 12 || 12;
+    return `${month} ${day}, ${year} at ${hours}:${mins} ${ampm}`;
+}
+
 export interface Event {
     id: string;
     title: string;
@@ -12,6 +25,10 @@ export interface Event {
     category: string;
     isCustom?: boolean; // True if created by the user
     joined?: boolean; // True if the user has joined this event
+    latitude?: number;
+    longitude?: number;
+    distanceKm?: number; // Distance from user's route, computed client-side
+    startDate?: Date; // Actual date/time of the event
 }
 
 interface EventsContextType {
@@ -60,17 +77,26 @@ export const EventsProvider = ({ children }: { children: ReactNode }) => {
             }
 
             // 3. Map to Event interface
-            const mappedEvents: Event[] = (eventsData || []).map(e => ({
-                id: e.id,
-                title: e.title,
-                description: e.description || '',
-                time: e.time_text || 'TBD', // Use the new column
-                location: e.location || '',
-                image_url: e.image_url || '',
-                category: e.activity_type || '',
-                isCustom: user ? e.created_by === user.id : false,
-                joined: joinedEventIds.includes(e.id)
-            }));
+            const mappedEvents: Event[] = (eventsData || []).map(e => {
+                const parsedDate = e.start_time ? new Date(e.start_time) : undefined;
+                const timeStr = parsedDate && !isNaN(parsedDate.getTime())
+                    ? formatEventDateTime(parsedDate)
+                    : (e.time_text || 'TBD');
+                return {
+                    id: e.id,
+                    title: e.title,
+                    description: e.description || '',
+                    time: timeStr,
+                    location: e.location || '',
+                    image_url: e.image_url || '',
+                    category: e.activity_type || '',
+                    isCustom: user ? e.created_by === user.id : false,
+                    joined: joinedEventIds.includes(e.id),
+                    latitude: e.latitude ?? undefined,
+                    longitude: e.longitude ?? undefined,
+                    startDate: parsedDate && !isNaN(parsedDate.getTime()) ? parsedDate : undefined,
+                };
+            });
 
             setEvents(mappedEvents);
         } catch (error) {
@@ -144,7 +170,10 @@ export const EventsProvider = ({ children }: { children: ReactNode }) => {
                     location: newEvent.location,
                     image_url: newEvent.image_url,
                     activity_type: newEvent.category,
-                    created_by: user.id
+                    created_by: user.id,
+                    latitude: newEvent.latitude ?? null,
+                    longitude: newEvent.longitude ?? null,
+                    start_time: newEvent.startDate ? newEvent.startDate.toISOString() : null,
                 })
                 .select()
                 .single();
@@ -152,16 +181,23 @@ export const EventsProvider = ({ children }: { children: ReactNode }) => {
             if (error) throw error;
 
             if (data) {
-                const createdParams = {
+                const createdDate = data.start_time ? new Date(data.start_time) : undefined;
+                const createdTimeStr = createdDate && !isNaN(createdDate.getTime())
+                    ? formatEventDateTime(createdDate)
+                    : (data.time_text || 'TBD');
+                const createdParams: Event = {
                     id: data.id,
                     title: data.title,
                     description: data.description || '',
-                    time: data.time_text || 'TBD',
+                    time: createdTimeStr,
                     location: data.location || '',
                     image_url: data.image_url || '',
                     category: data.activity_type || '',
                     isCustom: true,
-                    joined: true
+                    joined: true,
+                    latitude: data.latitude ?? undefined,
+                    longitude: data.longitude ?? undefined,
+                    startDate: createdDate && !isNaN(createdDate.getTime()) ? createdDate : undefined,
                 };
 
                 // Add to local state (optimistic-ish, since we got DB confirmation)

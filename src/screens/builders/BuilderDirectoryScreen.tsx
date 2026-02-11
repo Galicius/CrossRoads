@@ -56,7 +56,12 @@ export default function BuilderDirectoryScreen() {
             onPress={() => navigation.navigate('BuilderProfile', { builderId: item.id })}
         >
             <View style={styles.cardHeader}>
-                <Text style={styles.name}>{item.business_name}</Text>
+                <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                    <Text style={styles.name}>{item.business_name}</Text>
+                    {item.is_verified && (
+                        <IconSymbol name="checkmark.seal.fill" size={16} color="#1DA1F2" style={{ marginLeft: 4 }} />
+                    )}
+                </View>
                 <Text style={styles.rate}>${item.hourly_rate}/hr</Text>
             </View>
             <View style={styles.chips}>

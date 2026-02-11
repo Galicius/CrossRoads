@@ -1,8 +1,30 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, FlatList, TouchableOpacity, Image, TextInput, ScrollView, Modal, TouchableWithoutFeedback, Keyboard } from 'react-native';
+import { View, Text, StyleSheet, FlatList, TouchableOpacity, Image, TextInput, ScrollView, Modal, TouchableWithoutFeedback, Keyboard, Platform } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { useEvents, Event } from '@/context/EventsContext';
+import { PlaceAutocomplete } from '@/components/ui/PlaceAutocomplete';
+import { supabase } from '@/lib/supabase';
+import DateTimePicker, { DateTimePickerEvent } from '@react-native-community/datetimepicker';
+
+// Haversine distance in km
+function haversineKm(lat1: number, lon1: number, lat2: number, lon2: number): number {
+    const R = 6371;
+    const dLat = ((lat2 - lat1) * Math.PI) / 180;
+    const dLon = ((lon2 - lon1) * Math.PI) / 180;
+    const a = Math.sin(dLat / 2) ** 2 + Math.cos((lat1 * Math.PI) / 180) * Math.cos((lat2 * Math.PI) / 180) * Math.sin(dLon / 2) ** 2;
+    return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+}
+
+function minDistanceToRoute(eventLat: number, eventLng: number, route: any[]): number {
+    if (!route || route.length === 0) return Infinity;
+    let min = Infinity;
+    for (const cp of route) {
+        const d = haversineKm(eventLat, eventLng, cp.lat, cp.lng);
+        if (d < min) min = d;
+    }
+    return min;
+}
 
 const TABS = ['People', 'Events', 'Builders'];
 const TAGS = [
@@ -32,9 +54,26 @@ export default function SocialFeedScreen() {
     const [addEventModalVisible, setAddEventModalVisible] = useState(false);
     const [newEventTitle, setNewEventTitle] = useState('');
     const [newEventDesc, setNewEventDesc] = useState('');
-    const [newEventTime, setNewEventTime] = useState('');
+    const [newEventDate, setNewEventDate] = useState<Date>(new Date());
+    const [newEventDateSet, setNewEventDateSet] = useState(false); // whether user has picked
+    const [showDatePicker, setShowDatePicker] = useState(false);
+    const [showTimePicker, setShowTimePicker] = useState(false);
     const [newEventLocation, setNewEventLocation] = useState('');
+    const [newEventLocationCoords, setNewEventLocationCoords] = useState<{ lat: number; lng: number } | null>(null);
     const [newEventCategory, setNewEventCategory] = useState('');
+    const [userRoute, setUserRoute] = useState<any[]>([]);
+
+    // Load user route on mount for proximity sorting
+    useEffect(() => {
+        (async () => {
+            const { data: { user } } = await supabase.auth.getUser();
+            if (!user) return;
+            const { data } = await supabase.from('profiles').select('route_data').eq('id', user.id).single();
+            if (data?.route_data && Array.isArray(data.route_data)) {
+                setUserRoute(data.route_data as any[]);
+            }
+        })();
+    }, []);
 
     useEffect(() => {
         // Fetch other non-event data if needed
@@ -75,22 +114,39 @@ export default function SocialFeedScreen() {
             currentData = currentData.filter(item => selectedCategories.includes(item.category));
         }
 
+        // Sort events by proximity to user route
+        if (activeTab === 'Events' && userRoute.length > 0) {
+            currentData = currentData.map((ev: Event) => {
+                if (ev.latitude != null && ev.longitude != null) {
+                    return { ...ev, distanceKm: minDistanceToRoute(ev.latitude, ev.longitude, userRoute) };
+                }
+                return { ...ev, distanceKm: Infinity };
+            });
+            currentData.sort((a: any, b: any) => (a.distanceKm ?? Infinity) - (b.distanceKm ?? Infinity));
+        }
+
         return currentData;
     };
 
     const handleAddEvent = () => {
         if (!newEventTitle || !newEventCategory) return;
 
+        // Format time for display
+        const timeDisplay = newEventDateSet ? formatPickedDateTime(newEventDate) : 'TBD';
+
         const newEvent: Event = {
             id: Date.now().toString(),
             title: newEventTitle,
             description: newEventDesc,
-            time: newEventTime || 'TBD',
+            time: timeDisplay,
             location: newEventLocation || 'TBD',
             image_url: DEFAULT_ILLUSTRATION,
             category: newEventCategory,
             isCustom: true,
-            joined: true // Auto-join own event
+            joined: true,
+            latitude: newEventLocationCoords?.lat,
+            longitude: newEventLocationCoords?.lng,
+            startDate: newEventDateSet ? newEventDate : undefined,
         };
 
         createEvent(newEvent);
@@ -101,9 +157,46 @@ export default function SocialFeedScreen() {
     const resetAddEventForm = () => {
         setNewEventTitle('');
         setNewEventDesc('');
-        setNewEventTime('');
+        setNewEventDate(new Date());
+        setNewEventDateSet(false);
+        setShowDatePicker(false);
+        setShowTimePicker(false);
         setNewEventLocation('');
+        setNewEventLocationCoords(null);
         setNewEventCategory('');
+    };
+
+    const onDateChange = (_event: DateTimePickerEvent, selectedDate?: Date) => {
+        if (Platform.OS === 'android') setShowDatePicker(false);
+        if (selectedDate) {
+            // preserve the time already picked
+            const updated = new Date(newEventDate);
+            updated.setFullYear(selectedDate.getFullYear(), selectedDate.getMonth(), selectedDate.getDate());
+            setNewEventDate(updated);
+            setNewEventDateSet(true);
+        }
+    };
+
+    const onTimeChange = (_event: DateTimePickerEvent, selectedDate?: Date) => {
+        if (Platform.OS === 'android') setShowTimePicker(false);
+        if (selectedDate) {
+            const updated = new Date(newEventDate);
+            updated.setHours(selectedDate.getHours(), selectedDate.getMinutes());
+            setNewEventDate(updated);
+            setNewEventDateSet(true);
+        }
+    };
+
+    const formatPickedDateTime = (d: Date): string => {
+        const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+        const day = d.getDate();
+        const month = months[d.getMonth()];
+        const year = d.getFullYear();
+        let hours = d.getHours();
+        const mins = d.getMinutes().toString().padStart(2, '0');
+        const ampm = hours >= 12 ? 'PM' : 'AM';
+        hours = hours % 12 || 12;
+        return `${month} ${day}, ${year} at ${hours}:${mins} ${ampm}`;
     };
 
     const toggleFilterCategory = (catName: string) => {
@@ -130,6 +223,15 @@ export default function SocialFeedScreen() {
                             )}
                         </View>
                         <Text style={styles.eventDesc} numberOfLines={2}>{eventItem.description}</Text>
+
+                        {eventItem.distanceKm != null && eventItem.distanceKm < 100 && (
+                            <View style={styles.onRouteBadge}>
+                                <Ionicons name="navigate" size={12} color="white" />
+                                <Text style={styles.onRouteBadgeText}>
+                                    {eventItem.distanceKm < 1 ? 'On Your Route' : `${Math.round(eventItem.distanceKm)} km from route`}
+                                </Text>
+                            </View>
+                        )}
 
                         <View style={styles.infoRow}>
                             <Ionicons name="time-outline" size={16} color="#5B7FFF" />
@@ -351,21 +453,71 @@ export default function SocialFeedScreen() {
                                 onChangeText={setNewEventDesc}
                             />
 
-                            <Text style={styles.inputLabel}>Time</Text>
-                            <TextInput
-                                style={styles.modalInput}
-                                placeholder="e.g. 10:00 AM - 2:00 PM"
-                                value={newEventTime}
-                                onChangeText={setNewEventTime}
-                            />
+                            <Text style={styles.inputLabel}>Date & Time</Text>
+                            <View style={styles.dateTimeRow}>
+                                <TouchableOpacity
+                                    style={styles.datePickerButton}
+                                    onPress={() => setShowDatePicker(true)}
+                                >
+                                    <Ionicons name="calendar-outline" size={18} color="#5B7FFF" />
+                                    <Text style={styles.datePickerButtonText}>
+                                        {newEventDateSet
+                                            ? `${newEventDate.toLocaleDateString()}`
+                                            : 'Pick Date'}
+                                    </Text>
+                                </TouchableOpacity>
+                                <TouchableOpacity
+                                    style={styles.datePickerButton}
+                                    onPress={() => setShowTimePicker(true)}
+                                >
+                                    <Ionicons name="time-outline" size={18} color="#5B7FFF" />
+                                    <Text style={styles.datePickerButtonText}>
+                                        {newEventDateSet
+                                            ? `${newEventDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`
+                                            : 'Pick Time'}
+                                    </Text>
+                                </TouchableOpacity>
+                            </View>
+                            {showDatePicker && (
+                                <DateTimePicker
+                                    value={newEventDate}
+                                    mode="date"
+                                    display={Platform.OS === 'ios' ? 'spinner' : 'default'}
+                                    onChange={onDateChange}
+                                    minimumDate={new Date()}
+                                />
+                            )}
+                            {showTimePicker && (
+                                <DateTimePicker
+                                    value={newEventDate}
+                                    mode="time"
+                                    display={Platform.OS === 'ios' ? 'spinner' : 'default'}
+                                    onChange={onTimeChange}
+                                />
+                            )}
+                            {newEventDateSet && (
+                                <View style={styles.selectedDateBadge}>
+                                    <Ionicons name="checkmark-circle" size={16} color="#34C759" />
+                                    <Text style={styles.selectedDateText}>{formatPickedDateTime(newEventDate)}</Text>
+                                </View>
+                            )}
 
                             <Text style={styles.inputLabel}>Location</Text>
-                            <TextInput
-                                style={styles.modalInput}
-                                placeholder="e.g. Central Park"
-                                value={newEventLocation}
-                                onChangeText={setNewEventLocation}
-                            />
+                            <View style={{ zIndex: 1000 }}>
+                                <PlaceAutocomplete
+                                    onSelect={(place) => {
+                                        setNewEventLocation(place.name);
+                                        setNewEventLocationCoords({ lat: place.lat, lng: place.lng });
+                                    }}
+                                    placeholder="Search for a location..."
+                                />
+                            </View>
+                            {newEventLocation ? (
+                                <View style={styles.selectedLocationBadge}>
+                                    <Ionicons name="location" size={16} color="#5B7FFF" />
+                                    <Text style={styles.selectedLocationText}>{newEventLocation}</Text>
+                                </View>
+                            ) : null}
                         </ScrollView>
 
                         <View style={styles.modalActions}>
@@ -742,5 +894,74 @@ const styles = StyleSheet.create({
     },
     cancelButtonText: {
         color: '#666',
+    },
+    onRouteBadge: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        backgroundColor: '#34C759',
+        paddingHorizontal: 8,
+        paddingVertical: 3,
+        borderRadius: 10,
+        alignSelf: 'flex-start',
+        marginBottom: 6,
+        gap: 4,
+    },
+    onRouteBadgeText: {
+        color: 'white',
+        fontSize: 11,
+        fontWeight: '700',
+    },
+    selectedLocationBadge: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        backgroundColor: '#F0F4FF',
+        paddingHorizontal: 12,
+        paddingVertical: 8,
+        borderRadius: 10,
+        marginTop: 8,
+        gap: 8,
+    },
+    selectedLocationText: {
+        color: '#5B7FFF',
+        fontSize: 14,
+        fontWeight: '600',
+        flex: 1,
+    },
+    dateTimeRow: {
+        flexDirection: 'row',
+        gap: 10,
+    },
+    datePickerButton: {
+        flex: 1,
+        flexDirection: 'row',
+        alignItems: 'center',
+        backgroundColor: '#F0F4FF',
+        borderRadius: 12,
+        paddingVertical: 12,
+        paddingHorizontal: 14,
+        gap: 8,
+        borderWidth: 1,
+        borderColor: '#D6E0FF',
+    },
+    datePickerButtonText: {
+        fontSize: 14,
+        color: '#333',
+        fontWeight: '500',
+    },
+    selectedDateBadge: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        backgroundColor: '#E8F9EE',
+        paddingHorizontal: 12,
+        paddingVertical: 8,
+        borderRadius: 10,
+        marginTop: 8,
+        gap: 8,
+    },
+    selectedDateText: {
+        color: '#2D8E50',
+        fontSize: 13,
+        fontWeight: '600',
+        flex: 1,
     },
 });

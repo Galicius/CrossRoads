@@ -7,30 +7,10 @@ export type Json =
     | Json[]
 
 export type Database = {
-    graphql_public: {
-        Tables: {
-            [_ in never]: never
-        }
-        Views: {
-            [_ in never]: never
-        }
-        Functions: {
-            graphql: {
-                Args: {
-                    operationName?: string
-                    query?: string
-                    variables?: Json
-                    extensions?: Json
-                }
-                Returns: Json
-            }
-        }
-        Enums: {
-            [_ in never]: never
-        }
-        CompositeTypes: {
-            [_ in never]: never
-        }
+    // Allows to automatically instantiate createClient with right options
+    // instead of createClient<Database, { PostgrestVersion: 'XX' }>(URL, KEY)
+    __InternalSupabase: {
+        PostgrestVersion: "14.1"
     }
     public: {
         Tables: {
@@ -43,6 +23,7 @@ export type Database = {
                     hourly_rate: number | null
                     id: string
                     is_active: boolean | null
+                    is_verified: boolean | null
                     travel_radius_km: number | null
                 }
                 Insert: {
@@ -53,6 +34,7 @@ export type Database = {
                     hourly_rate?: number | null
                     id: string
                     is_active?: boolean | null
+                    is_verified?: boolean | null
                     travel_radius_km?: number | null
                 }
                 Update: {
@@ -63,6 +45,7 @@ export type Database = {
                     hourly_rate?: number | null
                     id?: string
                     is_active?: boolean | null
+                    is_verified?: boolean | null
                     travel_radius_km?: number | null
                 }
                 Relationships: [
@@ -108,59 +91,20 @@ export type Database = {
                 }
                 Relationships: []
             }
-            chat_messages: {
-                Row: {
-                    chat_id: string
-                    content: string
-                    created_at: string
-                    id: string
-                    sender_id: string
-                }
-                Insert: {
-                    chat_id: string
-                    content: string
-                    created_at?: string
-                    id?: string
-                    sender_id: string
-                }
-                Update: {
-                    chat_id?: string
-                    content?: string
-                    created_at?: string
-                    id?: string
-                    sender_id?: string
-                }
-                Relationships: [
-                    {
-                        foreignKeyName: "chat_messages_chat_id_fkey"
-                        columns: ["chat_id"]
-                        isOneToOne: false
-                        referencedRelation: "chats"
-                        referencedColumns: ["id"]
-                    },
-                    {
-                        foreignKeyName: "chat_messages_sender_id_fkey"
-                        columns: ["sender_id"]
-                        isOneToOne: false
-                        referencedRelation: "profiles"
-                        referencedColumns: ["id"]
-                    },
-                ]
-            }
             chat_participants: {
                 Row: {
                     chat_id: string
-                    joined_at: string
+                    joined_at: string | null
                     user_id: string
                 }
                 Insert: {
                     chat_id: string
-                    joined_at?: string
+                    joined_at?: string | null
                     user_id: string
                 }
                 Update: {
                     chat_id?: string
-                    joined_at?: string
+                    joined_at?: string | null
                     user_id?: string
                 }
                 Relationships: [
@@ -182,22 +126,31 @@ export type Database = {
             }
             chats: {
                 Row: {
-                    created_at: string
+                    created_at: string | null
                     id: string
                     is_group: boolean | null
+                    last_message_at: string | null
                     name: string | null
+                    type: string | null
+                    updated_at: string | null
                 }
                 Insert: {
-                    created_at?: string
+                    created_at?: string | null
                     id?: string
                     is_group?: boolean | null
+                    last_message_at?: string | null
                     name?: string | null
+                    type?: string | null
+                    updated_at?: string | null
                 }
                 Update: {
-                    created_at?: string
+                    created_at?: string | null
                     id?: string
                     is_group?: boolean | null
+                    last_message_at?: string | null
                     name?: string | null
+                    type?: string | null
+                    updated_at?: string | null
                 }
                 Relationships: []
             }
@@ -239,7 +192,9 @@ export type Database = {
                     end_time: string | null
                     id: string
                     image_url: string | null
+                    latitude: number | null
                     location: string | null
+                    longitude: number | null
                     start_time: string | null
                     time_text: string | null
                     title: string
@@ -252,7 +207,9 @@ export type Database = {
                     end_time?: string | null
                     id?: string
                     image_url?: string | null
+                    latitude?: number | null
                     location?: string | null
+                    longitude?: number | null
                     start_time?: string | null
                     time_text?: string | null
                     title: string
@@ -265,7 +222,9 @@ export type Database = {
                     end_time?: string | null
                     id?: string
                     image_url?: string | null
+                    latitude?: number | null
                     location?: string | null
+                    longitude?: number | null
                     start_time?: string | null
                     time_text?: string | null
                     title?: string
@@ -274,35 +233,35 @@ export type Database = {
             }
             help_offers: {
                 Row: {
+                    builder_id: string
                     created_at: string
-                    helper_id: string
                     id: string
                     message: string | null
                     request_id: string
-                    status: string
+                    status: string | null
                 }
                 Insert: {
+                    builder_id: string
                     created_at?: string
-                    helper_id: string
                     id?: string
                     message?: string | null
                     request_id: string
-                    status?: string
+                    status?: string | null
                 }
                 Update: {
+                    builder_id?: string
                     created_at?: string
-                    helper_id?: string
                     id?: string
                     message?: string | null
                     request_id?: string
-                    status?: string
+                    status?: string | null
                 }
                 Relationships: [
                     {
-                        foreignKeyName: "help_offers_helper_id_fkey"
-                        columns: ["helper_id"]
+                        foreignKeyName: "help_offers_builder_id_fkey"
+                        columns: ["builder_id"]
                         isOneToOne: false
-                        referencedRelation: "profiles"
+                        referencedRelation: "builder_profiles"
                         referencedColumns: ["id"]
                     },
                     {
@@ -316,48 +275,46 @@ export type Database = {
             }
             help_requests: {
                 Row: {
+                    category: string
                     created_at: string
                     description: string
                     id: string
-                    is_active: boolean | null
-                    latitude: number
-                    location_name: string | null
-                    longitude: number
-                    resolved_at: string | null
-                    status: string
-                    title: string
+                    latitude: number | null
+                    longitude: number | null
+                    selected_builder_id: string | null
+                    status: string | null
                     user_id: string
-                    urgency: string | null
                 }
                 Insert: {
+                    category: string
                     created_at?: string
                     description: string
                     id?: string
-                    is_active?: boolean | null
-                    latitude: number
-                    location_name?: string | null
-                    longitude: number
-                    resolved_at?: string | null
-                    status?: string
-                    title: string
+                    latitude?: number | null
+                    longitude?: number | null
+                    selected_builder_id?: string | null
+                    status?: string | null
                     user_id: string
-                    urgency?: string | null
                 }
                 Update: {
+                    category?: string
                     created_at?: string
                     description?: string
                     id?: string
-                    is_active?: boolean | null
-                    latitude?: number
-                    location_name?: string | null
-                    longitude?: number
-                    resolved_at?: string | null
-                    status?: string
-                    title?: string
+                    latitude?: number | null
+                    longitude?: number | null
+                    selected_builder_id?: string | null
+                    status?: string | null
                     user_id?: string
-                    urgency?: string | null
                 }
                 Relationships: [
+                    {
+                        foreignKeyName: "help_requests_selected_builder_id_fkey"
+                        columns: ["selected_builder_id"]
+                        isOneToOne: false
+                        referencedRelation: "builder_profiles"
+                        referencedColumns: ["id"]
+                    },
                     {
                         foreignKeyName: "help_requests_user_id_fkey"
                         columns: ["user_id"]
@@ -367,68 +324,153 @@ export type Database = {
                     },
                 ]
             }
-            profiles: {
+            message_reactions: {
                 Row: {
-                    avatar_url: string | null
-                    created_at: string
-                    full_name: string | null
+                    created_at: string | null
                     id: string
-                    route_end: string | null
-                    route_start: string | null
-                    updated_at: string
-                    username: string | null
-                    vehicle_type: string | null
+                    message_id: string | null
+                    reaction: string
+                    user_id: string | null
                 }
                 Insert: {
-                    avatar_url?: string | null
-                    created_at?: string
-                    full_name?: string | null
-                    id: string
-                    route_end?: string | null
-                    route_start?: string | null
-                    updated_at?: string
-                    username?: string | null
-                    vehicle_type?: string | null
+                    created_at?: string | null
+                    id?: string
+                    message_id?: string | null
+                    reaction: string
+                    user_id?: string | null
                 }
                 Update: {
-                    avatar_url?: string | null
-                    created_at?: string
-                    full_name?: string | null
+                    created_at?: string | null
                     id?: string
+                    message_id?: string | null
+                    reaction?: string
+                    user_id?: string | null
+                }
+                Relationships: [
+                    {
+                        foreignKeyName: "message_reactions_message_id_fkey"
+                        columns: ["message_id"]
+                        isOneToOne: false
+                        referencedRelation: "messages"
+                        referencedColumns: ["id"]
+                    },
+                ]
+            }
+            messages: {
+                Row: {
+                    chat_id: string | null
+                    content: string
+                    created_at: string | null
+                    id: string
+                    read_at: string | null
+                    sender_id: string | null
+                    type: string | null
+                }
+                Insert: {
+                    chat_id?: string | null
+                    content: string
+                    created_at?: string | null
+                    id?: string
+                    read_at?: string | null
+                    sender_id?: string | null
+                    type?: string | null
+                }
+                Update: {
+                    chat_id?: string | null
+                    content?: string
+                    created_at?: string | null
+                    id?: string
+                    read_at?: string | null
+                    sender_id?: string | null
+                    type?: string | null
+                }
+                Relationships: [
+                    {
+                        foreignKeyName: "messages_chat_id_fkey"
+                        columns: ["chat_id"]
+                        isOneToOne: false
+                        referencedRelation: "chats"
+                        referencedColumns: ["id"]
+                    },
+                ]
+            }
+            profiles: {
+                Row: {
+                    age: number | null
+                    avatar_url: string | null
+                    bio: string | null
+                    full_name: string | null
+                    id: string
+                    images: string[] | null
+                    latitude: number | null
+                    longitude: number | null
+                    route_data: Json | null
+                    route_end: string | null
+                    route_start: string | null
+                    updated_at: string | null
+                    username: string | null
+                    website: string | null
+                }
+                Insert: {
+                    age?: number | null
+                    avatar_url?: string | null
+                    bio?: string | null
+                    full_name?: string | null
+                    id: string
+                    images?: string[] | null
+                    latitude?: number | null
+                    longitude?: number | null
+                    route_data?: Json | null
                     route_end?: string | null
                     route_start?: string | null
-                    updated_at?: string
+                    updated_at?: string | null
                     username?: string | null
-                    vehicle_type?: string | null
+                    website?: string | null
+                }
+                Update: {
+                    age?: number | null
+                    avatar_url?: string | null
+                    bio?: string | null
+                    full_name?: string | null
+                    id?: string
+                    images?: string[] | null
+                    latitude?: number | null
+                    longitude?: number | null
+                    route_data?: Json | null
+                    route_end?: string | null
+                    route_start?: string | null
+                    updated_at?: string | null
+                    username?: string | null
+                    website?: string | null
                 }
                 Relationships: []
             }
             swipes: {
                 Row: {
                     created_at: string
-                    direction: string
                     id: string
-                    swiped_id: string
+                    liked: boolean
+                    swipee_id: string
                     swiper_id: string
                 }
                 Insert: {
                     created_at?: string
-                    direction: string
                     id?: string
-                    swiped_id: string
+                    liked: boolean
+                    swipee_id: string
                     swiper_id: string
                 }
                 Update: {
                     created_at?: string
-                    direction?: string
                     id?: string
-                    swiped_id?: string
+                    liked?: boolean
+                    swipee_id?: string
                     swiper_id?: string
                 }
                 Relationships: [
                     {
-                        foreignKeyName: "swipes_swiped_id_fkey"
-                        columns: ["swiped_id"]
+                        foreignKeyName: "swipes_swipee_id_fkey"
+                        columns: ["swipee_id"]
                         isOneToOne: false
                         referencedRelation: "profiles"
                         referencedColumns: ["id"]
@@ -442,12 +484,66 @@ export type Database = {
                     },
                 ]
             }
+            travel_paths: {
+                Row: {
+                    id: number
+                    latitude: number
+                    longitude: number
+                    user_id: string
+                    visited_at: string
+                }
+                Insert: {
+                    id?: number
+                    latitude: number
+                    longitude: number
+                    user_id: string
+                    visited_at?: string
+                }
+                Update: {
+                    id?: number
+                    latitude?: number
+                    longitude?: number
+                    user_id?: string
+                    visited_at?: string
+                }
+                Relationships: [
+                    {
+                        foreignKeyName: "travel_paths_user_id_fkey"
+                        columns: ["user_id"]
+                        isOneToOne: false
+                        referencedRelation: "profiles"
+                        referencedColumns: ["id"]
+                    },
+                ]
+            }
         }
         Views: {
             [_ in never]: never
         }
         Functions: {
-            [_ in never]: never
+            create_builder_chat: {
+                Args: { p_builder_id: string; p_user_id: string }
+                Returns: string
+            }
+            get_nearby_builders: {
+                Args: { lat: number; long: number }
+                Returns: {
+                    bio: string
+                    business_name: string
+                    created_at: string
+                    distance_km: number
+                    expertise: string[]
+                    hourly_rate: number
+                    id: string
+                    is_active: boolean
+                    travel_radius_km: number
+                }[]
+            }
+            handle_swipe: {
+                Args: { p_liked: boolean; p_swipee_id: string; p_swiper_id: string }
+                Returns: Json
+            }
+            is_chat_member: { Args: { _chat_id: string }; Returns: boolean }
         }
         Enums: {
             [_ in never]: never
@@ -458,27 +554,33 @@ export type Database = {
     }
 }
 
-type PublicSchema = Database[Extract<keyof Database, "public">]
+type DatabaseWithoutInternals = Omit<Database, "__InternalSupabase">
+
+type DefaultSchema = DatabaseWithoutInternals[Extract<keyof Database, "public">]
 
 export type Tables<
-    PublicTableNameOrOptions extends
-    | keyof (PublicSchema["Tables"] & PublicSchema["Views"])
-    | { schema: keyof Database },
-    TableName extends PublicTableNameOrOptions extends { schema: keyof Database }
-    ? keyof (Database[PublicTableNameOrOptions["schema"]]["Tables"] &
-        Database[PublicTableNameOrOptions["schema"]]["Views"])
+    DefaultSchemaTableNameOrOptions extends
+    | keyof (DefaultSchema["Tables"] & DefaultSchema["Views"])
+    | { schema: keyof DatabaseWithoutInternals },
+    TableName extends DefaultSchemaTableNameOrOptions extends {
+        schema: keyof DatabaseWithoutInternals
+    }
+    ? keyof (DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"] &
+        DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Views"])
     : never = never,
-> = PublicTableNameOrOptions extends { schema: keyof Database }
-    ? (Database[PublicTableNameOrOptions["schema"]]["Tables"] &
-        Database[PublicTableNameOrOptions["schema"]]["Views"])[TableName] extends {
+> = DefaultSchemaTableNameOrOptions extends {
+    schema: keyof DatabaseWithoutInternals
+}
+    ? (DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"] &
+        DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Views"])[TableName] extends {
             Row: infer R
         }
     ? R
     : never
-    : PublicTableNameOrOptions extends keyof (PublicSchema["Tables"] &
-        PublicSchema["Views"])
-    ? (PublicSchema["Tables"] &
-        PublicSchema["Views"])[PublicTableNameOrOptions] extends {
+    : DefaultSchemaTableNameOrOptions extends keyof (DefaultSchema["Tables"] &
+        DefaultSchema["Views"])
+    ? (DefaultSchema["Tables"] &
+        DefaultSchema["Views"])[DefaultSchemaTableNameOrOptions] extends {
             Row: infer R
         }
     ? R
@@ -486,20 +588,24 @@ export type Tables<
     : never
 
 export type TablesInsert<
-    PublicTableNameOrOptions extends
-    | keyof PublicSchema["Tables"]
-    | { schema: keyof Database },
-    TableName extends PublicTableNameOrOptions extends { schema: keyof Database }
-    ? keyof Database[PublicTableNameOrOptions["schema"]]["Tables"]
+    DefaultSchemaTableNameOrOptions extends
+    | keyof DefaultSchema["Tables"]
+    | { schema: keyof DatabaseWithoutInternals },
+    TableName extends DefaultSchemaTableNameOrOptions extends {
+        schema: keyof DatabaseWithoutInternals
+    }
+    ? keyof DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"]
     : never = never,
-> = PublicTableNameOrOptions extends { schema: keyof Database }
-    ? Database[PublicTableNameOrOptions["schema"]]["Tables"][TableName] extends {
+> = DefaultSchemaTableNameOrOptions extends {
+    schema: keyof DatabaseWithoutInternals
+}
+    ? DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"][TableName] extends {
         Insert: infer I
     }
     ? I
     : never
-    : PublicTableNameOrOptions extends keyof PublicSchema["Tables"]
-    ? PublicSchema["Tables"][PublicTableNameOrOptions] extends {
+    : DefaultSchemaTableNameOrOptions extends keyof DefaultSchema["Tables"]
+    ? DefaultSchema["Tables"][DefaultSchemaTableNameOrOptions] extends {
         Insert: infer I
     }
     ? I
@@ -507,20 +613,24 @@ export type TablesInsert<
     : never
 
 export type TablesUpdate<
-    PublicTableNameOrOptions extends
-    | keyof PublicSchema["Tables"]
-    | { schema: keyof Database },
-    TableName extends PublicTableNameOrOptions extends { schema: keyof Database }
-    ? keyof Database[PublicTableNameOrOptions["schema"]]["Tables"]
+    DefaultSchemaTableNameOrOptions extends
+    | keyof DefaultSchema["Tables"]
+    | { schema: keyof DatabaseWithoutInternals },
+    TableName extends DefaultSchemaTableNameOrOptions extends {
+        schema: keyof DatabaseWithoutInternals
+    }
+    ? keyof DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"]
     : never = never,
-> = PublicTableNameOrOptions extends { schema: keyof Database }
-    ? Database[PublicTableNameOrOptions["schema"]]["Tables"][TableName] extends {
+> = DefaultSchemaTableNameOrOptions extends {
+    schema: keyof DatabaseWithoutInternals
+}
+    ? DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"][TableName] extends {
         Update: infer U
     }
     ? U
     : never
-    : PublicTableNameOrOptions extends keyof PublicSchema["Tables"]
-    ? PublicSchema["Tables"][PublicTableNameOrOptions] extends {
+    : DefaultSchemaTableNameOrOptions extends keyof DefaultSchema["Tables"]
+    ? DefaultSchema["Tables"][DefaultSchemaTableNameOrOptions] extends {
         Update: infer U
     }
     ? U
@@ -528,29 +638,42 @@ export type TablesUpdate<
     : never
 
 export type Enums<
-    PublicEnumNameOrOptions extends
-    | keyof PublicSchema["Enums"]
-    | { schema: keyof Database },
-    EnumName extends PublicEnumNameOrOptions extends { schema: keyof Database }
-    ? keyof Database[PublicEnumNameOrOptions["schema"]]["Enums"]
+    DefaultSchemaEnumNameOrOptions extends
+    | keyof DefaultSchema["Enums"]
+    | { schema: keyof DatabaseWithoutInternals },
+    EnumName extends DefaultSchemaEnumNameOrOptions extends {
+        schema: keyof DatabaseWithoutInternals
+    }
+    ? keyof DatabaseWithoutInternals[DefaultSchemaEnumNameOrOptions["schema"]]["Enums"]
     : never = never,
-> = PublicEnumNameOrOptions extends { schema: keyof Database }
-    ? Database[PublicEnumNameOrOptions["schema"]]["Enums"][EnumName]
-    : PublicEnumNameOrOptions extends keyof PublicSchema["Enums"]
-    ? PublicSchema["Enums"][PublicEnumNameOrOptions]
+> = DefaultSchemaEnumNameOrOptions extends {
+    schema: keyof DatabaseWithoutInternals
+}
+    ? DatabaseWithoutInternals[DefaultSchemaEnumNameOrOptions["schema"]]["Enums"][EnumName]
+    : DefaultSchemaEnumNameOrOptions extends keyof DefaultSchema["Enums"]
+    ? DefaultSchema["Enums"][DefaultSchemaEnumNameOrOptions]
     : never
 
 export type CompositeTypes<
     PublicCompositeTypeNameOrOptions extends
-    | keyof PublicSchema["CompositeTypes"]
-    | { schema: keyof Database },
+    | keyof DefaultSchema["CompositeTypes"]
+    | { schema: keyof DatabaseWithoutInternals },
     CompositeTypeName extends PublicCompositeTypeNameOrOptions extends {
-        schema: keyof Database
+        schema: keyof DatabaseWithoutInternals
     }
-    ? keyof Database[PublicCompositeTypeNameOrOptions["schema"]]["CompositeTypes"]
+    ? keyof DatabaseWithoutInternals[PublicCompositeTypeNameOrOptions["schema"]]["CompositeTypes"]
     : never = never,
-> = PublicCompositeTypeNameOrOptions extends { schema: keyof Database }
-    ? Database[PublicCompositeTypeNameOrOptions["schema"]]["CompositeTypes"][CompositeTypeName]
-    : PublicCompositeTypeNameOrOptions extends keyof PublicSchema["CompositeTypes"]
-    ? PublicSchema["CompositeTypes"][PublicCompositeTypeNameOrOptions]
+> = PublicCompositeTypeNameOrOptions extends {
+    schema: keyof DatabaseWithoutInternals
+}
+    ? DatabaseWithoutInternals[PublicCompositeTypeNameOrOptions["schema"]]["CompositeTypes"][CompositeTypeName]
+    : PublicCompositeTypeNameOrOptions extends keyof DefaultSchema["CompositeTypes"]
+    ? DefaultSchema["CompositeTypes"][PublicCompositeTypeNameOrOptions]
     : never
+
+export const Constants = {
+    public: {
+        Enums: {},
+    },
+} as const
+

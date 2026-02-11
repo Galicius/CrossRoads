@@ -1,6 +1,7 @@
 
 import React, { useRef, useState } from 'react';
-import { View, StyleSheet, Image, Dimensions, TouchableWithoutFeedback, Text } from 'react-native';
+import { View, StyleSheet, Dimensions, TouchableWithoutFeedback, Text } from 'react-native';
+import { Image } from 'expo-image';
 import Carousel from 'react-native-reanimated-carousel';
 import { MinimalistMap } from './MinimalistMap';
 import Animated, { useAnimatedStyle, withTiming, useSharedValue } from 'react-native-reanimated';
@@ -36,7 +37,12 @@ export const DetailCarousel: React.FC<DetailCarouselProps> = ({
             return (
                 <TouchableWithoutFeedback onPress={onExpand}>
                     <View style={styles.imageContainer}>
-                        <Image source={{ uri: item.uri }} style={styles.image} resizeMode="cover" />
+                        <Image
+                            source={{ uri: item.uri }}
+                            style={styles.image}
+                            contentFit="cover"
+                            transition={500}
+                        />
                         {/* Overlay moved to parent SwipeableCard for consistent look */}
                     </View>
                 </TouchableWithoutFeedback>

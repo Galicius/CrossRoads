@@ -12,11 +12,12 @@ import InviteCodeScreen from '../screens/auth/InviteCodeScreen';
 import AuthScreen from '../screens/auth/AuthScreen';
 import MyProfileScreen from '../screens/profile/MyProfileScreen';
 import SocialFeedScreen from '../screens/social/SocialFeedScreen';
-import DatingDiscoverScreen from '../screens/dating/DatingDiscoverScreen';
+import DatingScreenV2 from '../screens/dating/DatingScreenV2';
 import ConversationListScreen from '../screens/chat/ConversationListScreen';
 import ChatScreen from '../screens/chat/ChatScreen';
 import BuildersStack from '../screens/builders/BuildersStack';
 import { NotFound } from './screens/NotFound';
+import PaywallScreen from '../screens/paywall/PaywallScreen';
 
 import { HapticTab } from '@/components/HapticTab';
 import { IconSymbol } from '@/components/ui/IconSymbol';
@@ -35,7 +36,7 @@ const HomeTabs = createBottomTabNavigator({
       },
     },
     Dating: {
-      screen: DatingDiscoverScreen,
+      screen: DatingScreenV2,
       options: {
         title: 'Dating',
         headerShown: false,
@@ -140,6 +141,14 @@ const RootStack = createNativeStackNavigator({
     EditProfileScreen: {
       screen: require('../screens/profile/EditProfileScreen').default,
       options: { headerShown: false },
+    },
+    Paywall: {
+      screen: PaywallScreen,
+      options: { presentation: 'modal', headerShown: false },
+    },
+    ProfileDetail: {
+      screen: require('../screens/dating/ProfileDetailScreen').default,
+      options: { presentation: 'modal', headerShown: false },
     },
   },
 });

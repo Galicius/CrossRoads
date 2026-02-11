@@ -4,12 +4,19 @@ import { useNavigation } from '@react-navigation/native';
 import { supabase } from '../../lib/supabase';
 import { IconSymbol } from '@/components/ui/IconSymbol';
 
-type ChatType = 'dating' | 'builder';
+type ChatType = 'dating' | 'social' | 'builder';
+
+const TABS: { key: ChatType; label: string; icon: string; emptyText: string }[] = [
+    { key: 'dating', label: 'Dating', icon: '❤️', emptyText: 'No matches yet. Go swipe!' },
+    { key: 'social', label: 'Social', icon: '👋', emptyText: 'No social chats yet. Connect with fellow travelers!' },
+    { key: 'builder', label: 'Builders', icon: '🔧', emptyText: 'No builder chats yet. Find help in the Builders tab!' },
+];
 
 export default function ConversationListScreen() {
     const navigation = useNavigation<any>();
     const [conversations, setConversations] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
+    const [initialLoad, setInitialLoad] = useState(true);
     const [activeTab, setActiveTab] = useState<ChatType>('dating');
 
     useEffect(() => {
@@ -20,7 +27,7 @@ export default function ConversationListScreen() {
 
     const loadConversations = async () => {
         try {
-            setLoading(true);
+            if (initialLoad) setLoading(true);
             const { data: { user } } = await supabase.auth.getUser();
             if (!user) return;
 
@@ -65,12 +72,11 @@ export default function ConversationListScreen() {
             console.error('Error loading conversations:', error);
         } finally {
             setLoading(false);
+            setInitialLoad(false);
         }
     };
 
-    if (loading) {
-        return <View style={styles.center}><ActivityIndicator /></View>;
-    }
+    const activeTabConfig = TABS.find(t => t.key === activeTab)!;
 
     return (
         <View style={styles.container}>
@@ -82,11 +88,32 @@ export default function ConversationListScreen() {
                 </TouchableOpacity>
             </View>
 
-            {conversations.length === 0 ? (
+            {/* Tab Bar */}
+            <View style={styles.tabBar}>
+                {TABS.map(tab => (
+                    <TouchableOpacity
+                        key={tab.key}
+                        style={[styles.tab, activeTab === tab.key && styles.activeTab]}
+                        onPress={() => {
+                            setActiveTab(tab.key);
+                            setInitialLoad(true);
+                        }}
+                    >
+                        <Text style={styles.tabIcon}>{tab.icon}</Text>
+                        <Text style={[styles.tabLabel, activeTab === tab.key && styles.activeTabLabel]}>
+                            {tab.label}
+                        </Text>
+                        {activeTab === tab.key && <View style={styles.tabIndicator} />}
+                    </TouchableOpacity>
+                ))}
+            </View>
+
+            {loading ? (
+                <View style={styles.center}><ActivityIndicator /></View>
+            ) : conversations.length === 0 ? (
                 <View style={styles.center}>
-                    <Text style={{ color: '#999' }}>
-                        {activeTab === 'dating' ? 'No matches yet. Go swipe!' : 'No builder chats yet.'}
-                    </Text>
+                    <Text style={styles.emptyIcon}>{activeTabConfig.icon}</Text>
+                    <Text style={styles.emptyText}>{activeTabConfig.emptyText}</Text>
                 </View>
             ) : (
                 <FlatList
@@ -112,7 +139,6 @@ export default function ConversationListScreen() {
                                         </View>
                                     )}
                                 </View>
-                                {/* Online status indicator */}
                                 <View style={styles.onlineIndicator} />
                             </View>
 
@@ -123,12 +149,6 @@ export default function ConversationListScreen() {
                                 </View>
                                 <View style={styles.messageRow}>
                                     <Text style={styles.message} numberOfLines={2}>{item.lastMessage}</Text>
-                                    {/* Unread badge */}
-                                    {Math.random() > 0.5 && (
-                                        <View style={styles.unreadBadge}>
-                                            <Text style={styles.unreadText}>1</Text>
-                                        </View>
-                                    )}
                                 </View>
                             </View>
                         </TouchableOpacity>
@@ -143,15 +163,15 @@ const styles = StyleSheet.create({
     container: {
         flex: 1,
         backgroundColor: '#F8F9FA',
-        paddingHorizontal: 20
     },
-    center: { flex: 1, justifyContent: 'center', alignItems: 'center' },
+    center: { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: '#F8F9FA' },
     header: {
         flexDirection: 'row',
         justifyContent: 'space-between',
         alignItems: 'center',
         paddingTop: 50,
-        paddingBottom: 20,
+        paddingBottom: 15,
+        paddingHorizontal: 20,
         backgroundColor: '#F8F9FA'
     },
     headerTitle: {
@@ -162,6 +182,60 @@ const styles = StyleSheet.create({
     searchButton: {
         padding: 8
     },
+
+    // Tab Bar
+    tabBar: {
+        flexDirection: 'row',
+        backgroundColor: 'white',
+        paddingHorizontal: 10,
+        borderBottomWidth: 1,
+        borderBottomColor: '#eee',
+    },
+    tab: {
+        flex: 1,
+        alignItems: 'center',
+        paddingVertical: 12,
+        position: 'relative',
+    },
+    activeTab: {},
+    tabIcon: {
+        fontSize: 18,
+        marginBottom: 4,
+    },
+    tabLabel: {
+        fontSize: 13,
+        fontWeight: '500',
+        color: '#8E8E93',
+    },
+    activeTabLabel: {
+        color: '#5B7FFF',
+        fontWeight: '700',
+    },
+    tabIndicator: {
+        position: 'absolute',
+        bottom: 0,
+        left: '20%',
+        right: '20%',
+        height: 3,
+        backgroundColor: '#5B7FFF',
+        borderTopLeftRadius: 3,
+        borderTopRightRadius: 3,
+    },
+
+    // Empty state
+    emptyIcon: {
+        fontSize: 48,
+        marginBottom: 12,
+    },
+    emptyText: {
+        color: '#999',
+        fontSize: 15,
+        textAlign: 'center',
+        paddingHorizontal: 40,
+        lineHeight: 22,
+    },
+
+    // List items
     item: {
         flexDirection: 'row',
         paddingVertical: 16,
@@ -239,20 +313,4 @@ const styles = StyleSheet.create({
         flex: 1,
         lineHeight: 20
     },
-    unreadBadge: {
-        backgroundColor: '#5B7FFF',
-        borderRadius: 12,
-        minWidth: 24,
-        height: 24,
-        justifyContent: 'center',
-        alignItems: 'center',
-        paddingHorizontal: 6,
-        marginLeft: 8
-    },
-    unreadText: {
-        color: 'white',
-        fontSize: 13,
-        fontWeight: 'bold'
-    },
-
 });

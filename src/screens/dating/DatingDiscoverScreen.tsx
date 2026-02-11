@@ -4,6 +4,7 @@ import { View, StyleSheet, Dimensions, Text, TouchableOpacity, Alert, ActivityIn
 import Swiper from 'react-native-deck-swiper';
 import { SwipeableCard } from '../../components/dating/SwipeableCard';
 import { supabase } from '../../lib/supabase';
+import { useRevenueCat } from '../../context/RevenueCatContext';
 
 const { width, height } = Dimensions.get('window');
 
@@ -28,22 +29,32 @@ export default function DatingDiscoverScreen() {
     const [cardIndex, setCardIndex] = useState(0);
     const [isSwipeEnabled, setIsSwipeEnabled] = useState(true);
     const [currentUser, setCurrentUser] = useState<any>(null);
+    const { isPro } = useRevenueCat();
+    const [swipesToday, setSwipesToday] = useState(0);
 
     useEffect(() => {
-        loadProfiles();
+        loadProfiles(false);
     }, []);
 
-    const loadProfiles = async () => {
+    const loadProfiles = async (isPagination = false) => {
+        if (loading) return; // Prevent duplicate calls
         try {
             setLoading(true);
             const { data: { user } } = await supabase.auth.getUser();
             if (!user) {
-                // Handle not logged in - maybe redirect or show auth screen
                 console.log("No user logged in");
                 setLoading(false);
                 return;
             }
-            setCurrentUser(user);
+            if (!currentUser) {
+                const { data: profile } = await supabase
+                    .from('profiles')
+                    .select('*')
+                    .eq('id', user.id)
+                    .single();
+
+                setCurrentUser(profile || user); // Fallback to auth user if profile missing
+            }
 
             // 1. Get IDs of users already swiped
             const { data: swipes } = await supabase
@@ -53,52 +64,77 @@ export default function DatingDiscoverScreen() {
 
             const swipedIds = swipes?.map(s => s.swipee_id) || [];
 
-            // 2. Fetch profiles excluding self and swiped, ensuring they have basic info
+            // Also exclude currently loaded profiles to avoid duplicates
+            const currentProfileIds = profiles.map(p => p.id);
+            const excludeIds = [...swipedIds, ...currentProfileIds];
+
+            // 2. Fetch profiles excluding self, swiped, and already loaded
             let query = supabase
                 .from('profiles')
                 .select('*')
                 .neq('id', user.id); // Exclude self
 
-            if (swipedIds.length > 0) {
-                // .not('id', 'in', `(${swipedIds.join(',')})`) // 'in' expects array/list, typical generic way:
-                // Supabase JS .in() filter doesn't support NOT IN directly easily in one chain sometimes?
-                // Actually .not('id', 'in', '(' + swipedIds.join(',') + ')') is tricky.
-                // Better: Filter in memory or use .filter('id', 'not.in', `(${swipedIds.join(',')})`)
-                // The safest is .not('id', 'in', `(${swipedIds.join(',')})`)
-                // Note: Supabase JS filter syntax: .not('column', 'operator', value)
-                query = query.not('id', 'in', `(${swipedIds.map(id => `"${id}"`).join(',')})`);
+            if (excludeIds.length > 0) {
+                // Use .filter with 'not.in' operator for robust exclusion
+                const filterString = `(${excludeIds.map(id => `"${id}"`).join(',')})`;
+                query = query.filter('id', 'not.in', filterString);
             }
 
-            const { data, error } = await query.limit(20);
+
+            const { data, error } = await query.limit(10); // Fetch smaller batches
 
             if (error) throw error;
 
-            // Transform data if needed to match SwipeableCard expectations
-            // The card expects: id, name, age, bio, images[], distance, myPath, matchPath, meetPoint
+            console.log(`Fetch debug (Pagination: ${isPagination}): Found ${data?.length} profiles`);
+
+            // Transform data
             const formattedProfiles = (data as any[])?.map(p => ({
                 id: p.id,
-                name: p.full_name || p.username || 'Anonymous', // Fallback
+                name: p.full_name || p.username || 'Anonymous',
                 age: p.age || 25,
                 bio: p.bio || 'No bio yet.',
                 images: p.images && p.images.length > 0 ? p.images : ['https://via.placeholder.com/400x600?text=No+Image'],
-                distance: 'Nearby', // scalable logic needed for real distance
-                // Mocking visual path data for now as DB might not have history
-                myPath: generatePath(p.latitude || 37.7, p.longitude || -122.4, 3),
-                matchPath: generatePath(37.7, -122.4, 3),
+                distance: 'Nearby',
+                myPath: p.route_data ? p.route_data : generatePath(p.latitude || 37.7, p.longitude || -122.4, 3),
+                matchPath: currentUser?.route_data ? currentUser.route_data : generatePath(37.7, -122.4, 3),
                 meetPoint: { latitude: p.latitude || 37.7, longitude: p.longitude || -122.4 }
             })) || [];
 
-            setProfiles(formattedProfiles);
+
+            if (isPagination) {
+                setProfiles(prev => [...prev, ...formattedProfiles]);
+            } else {
+                setProfiles(formattedProfiles);
+                checkSwipeCount(user.id);
+            }
 
         } catch (error) {
             console.error('Error loading profiles:', error);
-            Alert.alert('Error', 'Failed to load profiles');
         } finally {
             setLoading(false);
         }
     };
 
+    const checkSwipeCount = async (userId: string) => {
+        const startOfDay = new Date();
+        startOfDay.setHours(0, 0, 0, 0);
+
+        const { count } = await supabase
+            .from('swipes')
+            .select('*', { count: 'exact', head: true })
+            .eq('swiper_id', userId)
+            .gte('created_at', startOfDay.toISOString());
+
+        if (count !== null) {
+            setSwipesToday(count);
+            if (!isPro && count >= 10) {
+                setIsSwipeEnabled(false); // Disable initially if limit reached
+            }
+        }
+    };
+
     const handleSwipe = async (cardIndex: number, liked: boolean) => {
+        if (!isPro && swipesToday >= 10) return; // Block API call if limit reached
         if (!profiles[cardIndex] || !currentUser) return;
 
         const swipeeId = profiles[cardIndex].id;
@@ -134,8 +170,26 @@ export default function DatingDiscoverScreen() {
     };
 
     const onSwiped = (index: number) => {
+        const newCount = swipesToday + 1;
+        setSwipesToday(newCount);
+
+        if (!isPro && newCount >= 10) {
+            setIsSwipeEnabled(false);
+            Alert.alert("Daily Limit Reached", "Upgrade to Pro to continue swiping!", [
+                { text: "Cancel", style: "cancel" },
+                { text: "Upgrade", onPress: () => navigation.navigate('Paywall') }
+            ]);
+        } else {
+            setIsSwipeEnabled(true);
+        }
+
+
         setCardIndex(index + 1);
-        setIsSwipeEnabled(true);
+
+        // Pagination: Fetch more if nearing end (e.g., 5 cards left)
+        if (profiles.length - index < 5 && !loading) {
+            loadProfiles(true);
+        }
     };
 
     const renderCard = (card: any) => {
@@ -163,7 +217,7 @@ export default function DatingDiscoverScreen() {
             <View style={styles.container}>
                 <View style={styles.emptyState}>
                     <Text style={styles.emptyText}>No more profiles nearby!</Text>
-                    <TouchableOpacity onPress={loadProfiles}>
+                    <TouchableOpacity onPress={() => loadProfiles(false)}>
                         <Text style={{ color: '#4A90E2', marginTop: 20 }}>Refresh</Text>
                     </TouchableOpacity>
                 </View>

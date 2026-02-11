@@ -8,6 +8,7 @@ import { useColorScheme } from 'react-native';
 import { Colors } from './constants/Colors';
 import { Navigation } from './navigation';
 import { EventsProvider } from './context/EventsContext';
+import { RevenueCatProvider } from './context/RevenueCatContext';
 
 SplashScreen.preventAutoHideAsync();
 
@@ -34,20 +35,22 @@ export function App() {
       };
 
   return (
-    <EventsProvider>
-      <Navigation
-        theme={theme}
-        linking={{
-          enabled: 'auto',
-          prefixes: [
-            // Change the scheme to match your app's scheme defined in app.json
-            'helloworld://',
-          ],
-        }}
-        onReady={() => {
-          SplashScreen.hideAsync();
-        }}
-      />
-    </EventsProvider >
+    <RevenueCatProvider>
+      <EventsProvider>
+        <Navigation
+          theme={theme}
+          linking={{
+            enabled: 'auto',
+            prefixes: [
+              // Change the scheme to match your app's scheme defined in app.json
+              'helloworld://',
+            ],
+          }}
+          onReady={() => {
+            SplashScreen.hideAsync();
+          }}
+        />
+      </EventsProvider >
+    </RevenueCatProvider>
   );
 }

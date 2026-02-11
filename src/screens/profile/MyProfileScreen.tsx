@@ -280,7 +280,7 @@ export default function MyProfileScreen() {
                         ) : (
                             <View style={[styles.activityCard, { alignItems: 'center', padding: 30 }]}>
                                 <Text style={{ color: '#999', textAlign: 'center' }}>No upcoming activities joined.</Text>
-                                <TouchableOpacity onPress={() => navigation.navigate('SocialFeed')} style={{ marginTop: 10 }}>
+                                <TouchableOpacity onPress={() => navigation.navigate('Social')} style={{ marginTop: 10 }}>
                                     <Text style={{ color: '#5659ab', fontWeight: 'bold' }}>Find Events</Text>
                                 </TouchableOpacity>
                             </View>
