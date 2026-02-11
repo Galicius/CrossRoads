@@ -652,7 +652,7 @@ const styles = StyleSheet.create({
     tagBadge: {
         flexDirection: 'row',
         alignItems: 'center',
-        backgroundColor: '#5659ab',
+        backgroundColor: '#4d73ba',
         paddingHorizontal: 16,
         paddingVertical: 8,
         borderRadius: 20,

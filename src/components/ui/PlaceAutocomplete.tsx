@@ -89,7 +89,7 @@ export function PlaceAutocomplete({ onSelect, placeholder = "Search for a city..
                     onChangeText={handleChange}
                     placeholderTextColor="#999"
                 />
-                {loading && <ActivityIndicator size="small" color="#5659ab" />}
+                {loading && <ActivityIndicator size="small" color="#4d73ba" />}
             </View>
 
             {showResults && results.length > 0 && (
@@ -100,7 +100,7 @@ export function PlaceAutocomplete({ onSelect, placeholder = "Search for a city..
                         keyboardShouldPersistTaps="handled"
                         renderItem={({ item }) => (
                             <TouchableOpacity style={styles.resultItem} onPress={() => handleSelect(item)}>
-                                <IconSymbol name="mappin.circle.fill" size={20} color="#5659ab" />
+                                <IconSymbol name="mappin.circle.fill" size={20} color="#4d73ba" />
                                 <View style={styles.resultTextContainer}>
                                     <Text style={styles.resultMainText}>
                                         {item.address?.city || item.address?.town || item.address?.village || item.display_name.split(',')[0]}

@@ -210,7 +210,7 @@ const styles = StyleSheet.create({
     },
     cancelText: { fontSize: 16, color: '#666' },
     headerTitle: { fontSize: 18, fontWeight: 'bold' },
-    saveText: { fontSize: 16, color: '#5659ab', fontWeight: 'bold' },
+    saveText: { fontSize: 16, color: '#4d73ba', fontWeight: 'bold' },
 
     mapContainer: { height: 250, width: '100%' },
 
@@ -222,7 +222,7 @@ const styles = StyleSheet.create({
         padding: 12, borderRadius: 12, marginBottom: 10, borderWidth: 1, borderColor: '#eee'
     },
     orderBadge: {
-        width: 24, height: 24, borderRadius: 12, backgroundColor: '#5659ab',
+        width: 24, height: 24, borderRadius: 12, backgroundColor: '#4d73ba',
         alignItems: 'center', justifyContent: 'center', marginRight: 10
     },
     orderText: { color: 'white', fontWeight: 'bold', fontSize: 12 },

@@ -174,7 +174,7 @@ export default function EditProfileScreen() {
         );
     };
 
-    if (loading) return <View style={styles.center}><ActivityIndicator size="large" color="#5659ab" /></View>;
+    if (loading) return <View style={styles.center}><ActivityIndicator size="large" color="#4d73ba" /></View>;
 
     return (
         <SafeAreaView style={styles.container}>
@@ -184,7 +184,7 @@ export default function EditProfileScreen() {
                 </TouchableOpacity>
                 <Text style={styles.headerTitle}>Edit Profile</Text>
                 <TouchableOpacity onPress={handleSave} style={styles.headerBtn} disabled={saving}>
-                    {saving ? <ActivityIndicator size="small" color="#5659ab" /> : <Text style={styles.saveText}>Save</Text>}
+                    {saving ? <ActivityIndicator size="small" color="#4d73ba" /> : <Text style={styles.saveText}>Save</Text>}
                 </TouchableOpacity>
             </View>
 
@@ -243,7 +243,7 @@ export default function EditProfileScreen() {
                             </View>
                         ))}
                         <TouchableOpacity onPress={() => pickImage(false)} style={[styles.galleryItem, styles.addBtn]}>
-                            <IconSymbol name="plus" size={24} color="#5659ab" />
+                            <IconSymbol name="plus" size={24} color="#4d73ba" />
                         </TouchableOpacity>
                     </View>
                 </View>
@@ -254,7 +254,7 @@ export default function EditProfileScreen() {
                     onPress={() => navigation.navigate('EditRouteScreen', { currentRoute: routeData })}
                 >
                     <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-                        <IconSymbol name="map" size={20} color="#5659ab" />
+                        <IconSymbol name="map" size={20} color="#4d73ba" />
                         <Text style={styles.routeBtnText}>Edit My Route</Text>
                     </View>
                     <IconSymbol name="chevron.right" size={16} color="#ccc" />
@@ -281,17 +281,17 @@ const styles = StyleSheet.create({
     headerTitle: { fontSize: 17, fontWeight: '600' },
     headerBtn: { padding: 4 },
     cancelText: { fontSize: 16, color: '#666' },
-    saveText: { fontSize: 16, color: '#5659ab', fontWeight: 'bold' },
+    saveText: { fontSize: 16, color: '#4d73ba', fontWeight: 'bold' },
     content: { padding: 20 },
 
     avatarSection: { alignItems: 'center', marginBottom: 30 },
     avatar: { width: 100, height: 100, borderRadius: 50 },
     editBadge: {
-        position: 'absolute', right: 0, bottom: 0, backgroundColor: '#5659ab',
+        position: 'absolute', right: 0, bottom: 0, backgroundColor: '#4d73ba',
         width: 30, height: 30, borderRadius: 15, alignItems: 'center', justifyContent: 'center',
         borderWidth: 2, borderColor: 'white'
     },
-    changePhotoText: { color: '#5659ab', fontWeight: '600', fontSize: 14 },
+    changePhotoText: { color: '#4d73ba', fontWeight: '600', fontSize: 14 },
 
     formSection: { marginBottom: 30 },
     label: { fontSize: 13, color: '#666', marginBottom: 6, fontWeight: '500' },
