@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { View, Text, StyleSheet, FlatList, TouchableOpacity, TextInput, ScrollView, Modal, TouchableWithoutFeedback, Keyboard, Platform, Alert, ActivityIndicator } from 'react-native';
-import { Image } from 'expo-image';
+import { View, Text, StyleSheet, FlatList, TouchableOpacity, Image, TextInput, Modal, ScrollView, Animated, TouchableWithoutFeedback, Dimensions, Keyboard, Platform, Alert, ActivityIndicator } from 'react-native';
+import { Image as ExpoImage } from 'expo-image';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { useEvents, Event } from '@/context/EventsContext';
@@ -53,7 +53,7 @@ const DEFAULT_ILLUSTRATION = 'https://images.unsplash.com/photo-1514525253440-b3
 
 export default function SocialFeedScreen() {
     const insets = useSafeAreaInsets();
-    const { allEvents, createEvent, joinEvent } = useEvents();
+    const { allEvents, joinEvent, leaveEvent, createEvent, updateEvent, deleteEvent } = useEvents(); // Added updateEvent, deleteEvent
     const navigation = useNavigation<any>();
     const route = useRoute<any>();
     const [activeTab, setActiveTab] = useState('Events');
@@ -64,6 +64,17 @@ export default function SocialFeedScreen() {
     const [searchText, setSearchText] = useState('');
     const [currentUserId, setCurrentUserId] = useState<string | null>(null);
     const { isPro } = useRevenueCat();
+    const { width } = Dimensions.get('window');
+
+    // Helper to get chat ID for an event
+    const getEventChatId = async (eventId: string) => {
+        const { data } = await supabase
+            .from('chats')
+            .select('id')
+            .eq('type', `event_${eventId}`)
+            .single();
+        return data?.id;
+    };
 
     // Per-tab filter state
     const [filterModalVisible, setFilterModalVisible] = useState(false);
@@ -88,17 +99,19 @@ export default function SocialFeedScreen() {
         return userRoute[idx];
     }, [userRoute, selectedCheckpointIndex]);
 
-    // Add Event State
-    const [addEventModalVisible, setAddEventModalVisible] = useState(false);
-    const [newEventTitle, setNewEventTitle] = useState('');
-    const [newEventDesc, setNewEventDesc] = useState('');
-    const [newEventDate, setNewEventDate] = useState<Date>(new Date());
+    // Add/Edit Event State
+    const [modalVisible, setModalVisible] = useState(false);
+    const [isEditing, setIsEditing] = useState(false);
+    const [editingEventId, setEditingEventId] = useState<string | null>(null);
+    const [newTitle, setNewTitle] = useState('');
+    const [newDesc, setNewDesc] = useState('');
+    const [newEventDate, setNewEventDate] = useState<Date>(new Date()); // Used for date/time pickers
     const [newEventDateSet, setNewEventDateSet] = useState(false); // whether user has picked
     const [showDatePicker, setShowDatePicker] = useState(false);
     const [showTimePicker, setShowTimePicker] = useState(false);
-    const [newEventLocation, setNewEventLocation] = useState('');
+    const [newLoc, setNewLoc] = useState('');
     const [newEventLocationCoords, setNewEventLocationCoords] = useState<{ lat: number; lng: number } | null>(null);
-    const [newEventCategory, setNewEventCategory] = useState('');
+    const [newCategory, setNewCategory] = useState('Sport'); // Default
 
     // Load user route on mount for proximity sorting
     useEffect(() => {
@@ -334,42 +347,111 @@ export default function SocialFeedScreen() {
         return currentData;
     };
 
-    const handleAddEvent = () => {
-        if (!newEventTitle || !newEventCategory) return;
+    const resetEventForm = () => {
+        setNewTitle('');
+        setNewDesc('');
+        setNewEventDate(new Date());
+        setNewEventDateSet(false);
+        setShowDatePicker(false);
+        setShowTimePicker(false);
+        setNewLoc('');
+        setNewEventLocationCoords(null);
+        setNewCategory('Sport');
+    };
 
-        // Format time for display
-        const timeDisplay = newEventDateSet ? formatPickedDateTime(newEventDate) : 'TBD';
+    const handleOpenCreate = () => {
+        setIsEditing(false);
+        setEditingEventId(null);
+        resetEventForm();
+        setModalVisible(true);
+    };
 
-        const newEvent: Event = {
-            id: Date.now().toString(),
-            title: newEventTitle,
-            description: newEventDesc,
-            time: timeDisplay,
-            location: newEventLocation || 'TBD',
+    const handleOpenEdit = (event: Event) => {
+        setIsEditing(true);
+        setEditingEventId(event.id);
+        setNewTitle(event.title);
+        setNewDesc(event.description);
+        // For editing, try to parse existing time string into Date object
+        const parsedDate = event.startDate || (event.time ? new Date(event.time) : new Date());
+        setNewEventDate(parsedDate);
+        setNewEventDateSet(!!event.startDate || !!event.time);
+        setNewLoc(event.location || '');
+        if (event.latitude && event.longitude) {
+            setNewEventLocationCoords({ lat: event.latitude, lng: event.longitude });
+        } else {
+            setNewEventLocationCoords(null);
+        }
+        setNewCategory(event.category || 'Sport');
+        setModalVisible(true);
+    };
+
+    const handleCreateEvent = async () => {
+        if (!newTitle || !newCategory) {
+            Alert.alert('Missing Fields', 'Please fill in at least the title and category.');
+            return;
+        }
+
+        const eventData: Event = {
+            id: isEditing && editingEventId ? editingEventId : Date.now().toString(), // ID ignored on create
+            title: newTitle,
+            description: newDesc,
+            time: newEventDateSet ? formatPickedDateTime(newEventDate) : 'TBD',
+            location: newLoc || 'TBD',
+            category: newCategory,
             image_url: DEFAULT_ILLUSTRATION,
-            category: newEventCategory,
             isCustom: true,
-            joined: true,
+            joined: true, // Creator automatically joins
             latitude: newEventLocationCoords?.lat,
             longitude: newEventLocationCoords?.lng,
             startDate: newEventDateSet ? newEventDate : undefined,
         };
 
-        createEvent(newEvent);
-        resetAddEventForm();
-        setAddEventModalVisible(false);
+        if (isEditing && editingEventId) {
+            await updateEvent(eventData);
+        } else {
+            await createEvent(eventData);
+        }
+
+        setModalVisible(false);
+        resetEventForm();
     };
 
-    const resetAddEventForm = () => {
-        setNewEventTitle('');
-        setNewEventDesc('');
-        setNewEventDate(new Date());
-        setNewEventDateSet(false);
-        setShowDatePicker(false);
-        setShowTimePicker(false);
-        setNewEventLocation('');
-        setNewEventLocationCoords(null);
-        setNewEventCategory('');
+    const handleDelete = (eventId: string) => {
+        Alert.alert(
+            "Delete Event",
+            "Are you sure you want to delete this event?",
+            [
+                { text: "Cancel", style: "cancel" },
+                { text: "Delete", style: "destructive", onPress: () => deleteEvent(eventId) }
+            ]
+        );
+    };
+
+    const handleChatPress = async (event: Event) => {
+        try {
+            // @ts-ignore
+            const { data: chatId, error } = await supabase.rpc('get_or_create_event_chat', {
+                _event_id: event.id,
+                _event_name: event.title
+            });
+
+            if (error) throw error;
+
+            if (chatId) {
+                navigation.navigate('HomeTabs', {
+                    screen: 'Chat',
+                    params: { initialTab: 'events' }
+                });
+                setTimeout(() => {
+                    navigation.navigate('ChatDetail', { chatId, otherUserName: event.title });
+                }, 100);
+            } else {
+                Alert.alert('Error', 'Could not initialize chat (No ID returned).');
+            }
+        } catch (err) {
+            console.error("Error opening chat:", err);
+            Alert.alert('Error', 'Failed to open chat.');
+        }
     };
 
     const onDateChange = (_event: DateTimePickerEvent, selectedDate?: Date) => {
@@ -418,7 +500,7 @@ export default function SocialFeedScreen() {
             const eventItem = item as Event;
             return (
                 <View style={styles.eventCard}>
-                    <Image source={require('@/assets/images/activity.jpg')} style={styles.eventImage} />
+                    <ExpoImage source={require('@/assets/images/activity.jpg')} style={styles.eventImage} />
                     <View style={styles.eventContent}>
                         <View style={styles.titleRow}>
                             <Text style={styles.eventTitle}>{eventItem.title}</Text>
@@ -448,22 +530,40 @@ export default function SocialFeedScreen() {
                             <Text style={styles.infoText}>{eventItem.location}</Text>
                         </View>
 
-                        {/* Join Button */}
-                        <TouchableOpacity
-                            style={[
-                                styles.joinButton,
-                                eventItem.joined && styles.joinedButton
-                            ]}
-                            onPress={() => !eventItem.joined && joinEvent(eventItem.id)}
-                            disabled={eventItem.joined}
-                        >
-                            <Text style={[
-                                styles.joinButtonText,
-                                eventItem.joined && styles.joinedButtonText
-                            ]}>
-                                {eventItem.joined ? 'Joined' : 'Join Group'}
-                            </Text>
-                        </TouchableOpacity>
+                        <View style={styles.actionButtons}>
+                            {/* Chat Button for Joined Events */}
+                            {eventItem.joined && (
+                                <TouchableOpacity
+                                    style={[styles.actionBtn, { backgroundColor: '#E8F1FF', marginRight: 8 }]}
+                                    onPress={() => handleChatPress(eventItem)}
+                                >
+                                    <Ionicons name="chatbubbles-outline" size={18} color="#4d73ba" />
+                                    <Text style={[styles.actionBtnText, { color: '#4d73ba' }]}>Chat</Text>
+                                </TouchableOpacity>
+                            )}
+
+                            {/* Join/Leave Button */}
+                            <TouchableOpacity
+                                style={[styles.joinButton, eventItem.joined && styles.joinedButton]}
+                                onPress={() => eventItem.joined ? leaveEvent(eventItem.id) : joinEvent(eventItem.id)}
+                            >
+                                <Text style={[styles.joinButtonText, eventItem.joined && styles.joinedButtonText]}>
+                                    {eventItem.joined ? 'Going' : 'Join'}
+                                </Text>
+                            </TouchableOpacity>
+                        </View>
+
+                        {/* Edit/Delete Controls for Creator */}
+                        {eventItem.isCustom && (
+                            <View style={styles.creatorControls}>
+                                <TouchableOpacity onPress={() => handleOpenEdit(eventItem)} style={styles.controlBtn}>
+                                    <Ionicons name="create-outline" size={20} color="#666" />
+                                </TouchableOpacity>
+                                <TouchableOpacity onPress={() => handleDelete(eventItem.id)} style={styles.controlBtn}>
+                                    <Ionicons name="trash-outline" size={20} color="#FF3B30" />
+                                </TouchableOpacity>
+                            </View>
+                        )}
                     </View>
                 </View>
             );
@@ -475,7 +575,7 @@ export default function SocialFeedScreen() {
             return (
                 <View style={styles.personCard}>
                     <View style={styles.personHeader}>
-                        <Image
+                        <ExpoImage
                             source={{ uri: profile?.avatar_url || 'https://images.unsplash.com/photo-1570295999919-56ceb5ecca61?ixlib=rb-1.2.1&auto=format&fit=crop&w=500&q=80' }}
                             style={styles.personAvatar}
                         />
@@ -517,7 +617,7 @@ export default function SocialFeedScreen() {
             return (
                 <View style={styles.personCard}>
                     <View style={styles.personHeader}>
-                        <Image
+                        <ExpoImage
                             source={{ uri: builderProfile?.avatar_url || 'https://images.unsplash.com/photo-1570295999919-56ceb5ecca61?ixlib=rb-1.2.1&auto=format&fit=crop&w=500&q=80' }}
                             style={styles.personAvatar}
                         />
@@ -562,12 +662,11 @@ export default function SocialFeedScreen() {
 
     return (
         <View style={styles.container}>
-            <Image
+            <ExpoImage
                 source={require('@/assets/images/image.jpg')}
-                style={StyleSheet.absoluteFill}
+                style={styles.backgroundImage}
                 contentFit="cover"
                 contentPosition="center"
-
             />
             <View style={{ paddingTop: insets.top, flex: 1 }}>
                 {/* Header Area */}
@@ -684,7 +783,7 @@ export default function SocialFeedScreen() {
             {activeTab === 'Events' && (
                 <TouchableOpacity
                     style={[styles.fab, { bottom: insets.bottom + 80 }]}
-                    onPress={() => setAddEventModalVisible(true)}
+                    onPress={handleOpenCreate}
                 >
                     <Ionicons name="add" size={32} color="white" />
                 </TouchableOpacity>
@@ -743,16 +842,21 @@ export default function SocialFeedScreen() {
                 </TouchableWithoutFeedback>
             </Modal>
 
-            {/* Add Event Modal */}
+            {/* Create/Edit Event Modal */}
             <Modal
-                visible={addEventModalVisible}
+                visible={modalVisible}
                 animationType="slide"
                 transparent={true}
-                onRequestClose={() => setAddEventModalVisible(false)}
+                onRequestClose={() => setModalVisible(false)}
             >
                 <View style={styles.modalOverlay}>
                     <View style={styles.modalContent}>
-                        <Text style={styles.modalTitle}>Add New Event</Text>
+                        <View style={styles.modalHeader}>
+                            <Text style={styles.modalTitle}>{isEditing ? 'Edit Event' : 'Add New Event'}</Text>
+                            <TouchableOpacity onPress={() => { setModalVisible(false); resetEventForm(); }}>
+                                <Ionicons name="close" size={24} color="#333" />
+                            </TouchableOpacity>
+                        </View>
 
                         <ScrollView
                             style={{ maxHeight: 400 }}
@@ -764,8 +868,8 @@ export default function SocialFeedScreen() {
                             <TextInput
                                 style={styles.modalInput}
                                 placeholder="Event Name"
-                                value={newEventTitle}
-                                onChangeText={setNewEventTitle}
+                                value={newTitle}
+                                onChangeText={setNewTitle}
                             />
 
                             <Text style={styles.inputLabel}>Category</Text>
@@ -775,13 +879,13 @@ export default function SocialFeedScreen() {
                                         key={tag.name}
                                         style={[
                                             styles.categoryChip,
-                                            newEventCategory === tag.name && styles.categoryChipSelected
+                                            newCategory === tag.name && styles.categoryChipSelected
                                         ]}
-                                        onPress={() => setNewEventCategory(tag.name)}
+                                        onPress={() => setNewCategory(tag.name)}
                                     >
                                         <Text style={[
                                             styles.categoryChipText,
-                                            newEventCategory === tag.name && styles.categoryChipTextSelected
+                                            newCategory === tag.name && styles.categoryChipTextSelected
                                         ]}>{tag.name}</Text>
                                     </TouchableOpacity>
                                 ))}
@@ -793,8 +897,8 @@ export default function SocialFeedScreen() {
                                 placeholder="What's happening?"
                                 multiline
                                 numberOfLines={3}
-                                value={newEventDesc}
-                                onChangeText={setNewEventDesc}
+                                value={newDesc}
+                                onChangeText={setNewDesc}
                             />
 
                             <Text style={styles.inputLabel}>Date & Time</Text>
@@ -850,16 +954,17 @@ export default function SocialFeedScreen() {
                             <View style={{ zIndex: 1000 }}>
                                 <PlaceAutocomplete
                                     onSelect={(place) => {
-                                        setNewEventLocation(place.name);
+                                        setNewLoc(place.name);
                                         setNewEventLocationCoords({ lat: place.lat, lng: place.lng });
                                     }}
                                     placeholder="Search for a location..."
+                                    initialValue={newLoc}
                                 />
                             </View>
-                            {newEventLocation ? (
+                            {newLoc ? (
                                 <View style={styles.selectedLocationBadge}>
                                     <Ionicons name="location" size={16} color="#5B7FFF" />
-                                    <Text style={styles.selectedLocationText}>{newEventLocation}</Text>
+                                    <Text style={styles.selectedLocationText}>{newLoc}</Text>
                                 </View>
                             ) : null}
                         </ScrollView>
@@ -868,14 +973,14 @@ export default function SocialFeedScreen() {
                             <TouchableOpacity
                                 style={[styles.modalButton, styles.cancelButton]}
                                 onPress={() => {
-                                    setAddEventModalVisible(false);
-                                    resetAddEventForm();
+                                    setModalVisible(false);
+                                    resetEventForm();
                                 }}
                             >
                                 <Text style={[styles.modalButtonText, styles.cancelButtonText]}>Cancel</Text>
                             </TouchableOpacity>
-                            <TouchableOpacity style={styles.modalButton} onPress={handleAddEvent}>
-                                <Text style={styles.modalButtonText}>Create Event</Text>
+                            <TouchableOpacity style={styles.modalButton} onPress={handleCreateEvent}>
+                                <Text style={styles.modalButtonText}>{isEditing ? 'Save Changes' : 'Create Event'}</Text>
                             </TouchableOpacity>
                         </View>
                     </View>
@@ -933,7 +1038,14 @@ export default function SocialFeedScreen() {
 const styles = StyleSheet.create({
     container: {
         flex: 1,
-        backgroundColor: '#E5E5EA', // Fallback
+        backgroundColor: 'white',
+    },
+    backgroundImage: {
+        position: 'absolute',
+        top: -85,
+        left: 0,
+        right: 0,
+        bottom: 130,
     },
     headerArea: {
         paddingHorizontal: 20,
@@ -950,8 +1062,8 @@ const styles = StyleSheet.create({
     screenTitle: {
         fontSize: 32,
         fontWeight: 'bold',
-        color: '#1A1A1A',
-        marginTop: 10,
+        color: '#fff',
+        marginTop: 15,
         marginBottom: 10,
     },
     tabsRow: {
@@ -1167,6 +1279,7 @@ const styles = StyleSheet.create({
         borderRadius: 8,
         marginTop: 8,
         alignItems: 'center',
+        flex: 1,
     },
     joinedButton: {
         backgroundColor: '#E0E0E0',
@@ -1220,17 +1333,53 @@ const styles = StyleSheet.create({
     fab: {
         position: 'absolute',
         right: 20,
-        backgroundColor: '#5B7FFF',
+        backgroundColor: '#4d73ba',
         width: 56,
         height: 56,
         borderRadius: 28,
         justifyContent: 'center',
         alignItems: 'center',
+        elevation: 8,
         shadowColor: '#000',
         shadowOffset: { width: 0, height: 4 },
         shadowOpacity: 0.3,
-        shadowRadius: 4.65,
-        elevation: 8,
+        shadowRadius: 4,
+    },
+    actionButtons: {
+        flexDirection: 'row',
+        alignItems: 'center',
+    },
+    actionBtn: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        paddingHorizontal: 12,
+        paddingVertical: 8,
+        borderRadius: 20,
+        gap: 4
+    },
+    actionBtnText: {
+        fontWeight: '600',
+        fontSize: 13
+    },
+    creatorControls: {
+        position: 'absolute',
+        top: 15,
+        right: 15,
+        flexDirection: 'row',
+        gap: 10,
+        backgroundColor: 'rgba(255,255,255,0.9)',
+        padding: 5,
+        borderRadius: 15
+    },
+    controlBtn: {
+        padding: 5,
+        marginHorizontal: 2
+    },
+    modalHeader: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        marginBottom: 15
     },
     modalOverlay: {
         flex: 1,

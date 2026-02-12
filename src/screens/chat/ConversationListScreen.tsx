@@ -5,11 +5,12 @@ import Ionicons from '@expo/vector-icons/Ionicons';
 import { supabase } from '../../lib/supabase';
 import { IconSymbol } from '@/components/ui/IconSymbol';
 
-type ChatType = 'dating' | 'social' | 'builder';
+type ChatType = 'dating' | 'social' | 'events' | 'builder';
 
 const TABS: { key: ChatType; label: string; icon: any; emptyText: string }[] = [
     { key: 'dating', label: 'Dating', icon: 'heart', emptyText: 'No matches yet. Go swipe!' },
     { key: 'social', label: 'Social', icon: 'people', emptyText: 'No social chats yet. Connect with fellow travelers!' },
+    { key: 'events', label: 'Events', icon: 'calendar', emptyText: 'No event chats yet. Join an event to start chatting!' },
     { key: 'builder', label: 'Builders', icon: 'construct', emptyText: 'No builder chats yet. Find help in the Builders tab!' },
 ];
 
@@ -44,13 +45,19 @@ export default function ConversationListScreen() {
             // 1. Get chats I belong to
             const { data: myChats, error: chatError } = await supabase
                 .from('chat_participants')
-                .select('chat_id, chats(type)')
+                .select('chat_id, chats(type, name)')
                 .eq('user_id', user.id);
 
             if (chatError) throw chatError;
 
             // Filter by type
-            const filteredChats = myChats?.filter((c: any) => c.chats?.type === activeTab) || [];
+            const filteredChats = myChats?.filter((c: any) => {
+                const type = c.chats?.type;
+                if (activeTab === 'events') {
+                    return type && type.startsWith('event_');
+                }
+                return type === activeTab;
+            }) || [];
             const chatIds = filteredChats.map((c: any) => c.chat_id);
 
             if (chatIds.length === 0) {
@@ -69,12 +76,24 @@ export default function ConversationListScreen() {
             if (partError) throw partError;
 
             // Transform data
-            const formatted = participants?.map((p: any) => ({
-                id: p.chat_id,
-                otherUser: p.profiles,
-                lastMessage: 'Chat now!',
-                time: ''
-            })) || [];
+            const formatted = participants?.map((p: any) => {
+                // For events, the "otherUser" might technically be a mix, but for list display we can show the group name
+                // If it's an event chat, use the chat name (event title)
+                const isEvent = p.chat_id && filteredChats.find((fc: any) => fc.chat_id === p.chat_id)?.chats?.type?.startsWith('event_');
+                // Use the chat name if event, otherwise user name.
+                // We need to fetch chat details to get the name properly if we rely on 'profiles'.
+                // Ideally, we previously fetched 'chats(type, name)'.
+                const chatInfo = filteredChats.find((fc: any) => fc.chat_id === p.chat_id)?.chats;
+
+                return {
+                    id: p.chat_id,
+                    otherUser: p.profiles,
+                    chatName: isEvent ? chatInfo?.name : (p.profiles?.name || p.profiles?.username || 'User'),
+                    isEvent,
+                    lastMessage: 'Chat now!',
+                    time: ''
+                };
+            }) || [];
 
             setConversations(formatted);
 
@@ -148,9 +167,7 @@ export default function ConversationListScreen() {
                                         <Image source={{ uri: item.otherUser.images[0] }} style={styles.avatarImage} />
                                     ) : (
                                         <View style={styles.avatarPlaceholder}>
-                                            <Text style={styles.avatarPlaceholderText}>
-                                                {(item.otherUser?.name || item.otherUser?.username || 'A')[0].toUpperCase()}
-                                            </Text>
+                                            <TelegramIcon name={item.isEvent ? "calendar" : "person"} size={24} color="white" />
                                         </View>
                                     )}
                                 </View>
@@ -159,7 +176,7 @@ export default function ConversationListScreen() {
 
                             <View style={styles.content}>
                                 <View style={styles.row}>
-                                    <Text style={styles.name}>{item.otherUser?.name || item.otherUser?.username || 'Anonymous'}</Text>
+                                    <Text style={styles.name}>{item.chatName}</Text>
                                     <Text style={styles.time}>{item.time || '5 min'}</Text>
                                 </View>
                                 <View style={styles.messageRow}>
@@ -329,3 +346,9 @@ const styles = StyleSheet.create({
         lineHeight: 20
     },
 });
+
+// Helper for icon if IconSymbol doesn't support generic names for this specific need,
+// using Ionicons directly for the placeholder
+function TelegramIcon({ name, size, color }: any) {
+    return <Ionicons name={name} size={size} color={color} />;
+}

@@ -37,6 +37,7 @@ interface EventsContextType {
     joinEvent: (eventId: string) => Promise<void>;
     leaveEvent: (eventId: string) => Promise<void>;
     createEvent: (newEvent: Event) => Promise<void>;
+    updateEvent: (updatedEvent: Event) => Promise<void>;
     deleteEvent: (eventId: string) => Promise<void>;
     loading: boolean;
 }
@@ -132,6 +133,18 @@ export const EventsProvider = ({ children }: { children: ReactNode }) => {
                 console.error('Error joining event:', error);
                 // Revert optimistic update
                 setEvents(prev => prev.map(e => e.id === eventId ? { ...e, joined: false } : e));
+            } else {
+                // Determine chat ID (convention: "event_<eventId>")
+                const event = events.find(e => e.id === eventId);
+                // @ts-ignore
+                const { error: rpcError } = await supabase.rpc('get_or_create_event_chat', {
+                    _event_id: eventId,
+                    _event_name: event?.title || 'Event Chat'
+                });
+
+                if (rpcError) {
+                    console.error('Error ensuring chat exists:', rpcError);
+                }
             }
         } catch (error) {
             console.error('Error joining event:', error);
@@ -156,6 +169,22 @@ export const EventsProvider = ({ children }: { children: ReactNode }) => {
                 console.error('Error leaving event:', error);
                 // Revert
                 setEvents(prev => prev.map(e => e.id === eventId ? { ...e, joined: true } : e));
+            } else {
+                // Remove from chat
+                const chatType = `event_${eventId}`;
+                const { data: chat } = await supabase
+                    .from('chats')
+                    .select('id')
+                    .eq('type', chatType)
+                    .single();
+
+                if (chat) {
+                    await supabase
+                        .from('chat_participants')
+                        .delete()
+                        .eq('chat_id', chat.id)
+                        .eq('user_id', user.id);
+                }
             }
         } catch (error) {
             console.error('Error leaving event:', error);
@@ -215,10 +244,72 @@ export const EventsProvider = ({ children }: { children: ReactNode }) => {
                     user_id: user.id,
                     status: 'going'
                 });
+
+                // Create the chat immediately
+                const chatType = `event_${data.id}`;
+                const { data: newChat } = await supabase
+                    .from('chats')
+                    .insert({
+                        type: chatType,
+                        is_group: true,
+                        name: data.title
+                    })
+                    .select()
+                    .single();
+
+                if (newChat) {
+                    await supabase
+                        .from('chat_participants')
+                        .insert({
+                            chat_id: newChat.id,
+                            user_id: user.id
+                        });
+                }
             }
 
         } catch (error) {
             console.error('Error creating event:', error);
+        }
+    };
+
+    const updateEvent = async (updatedEvent: Event) => {
+        try {
+            const { data: { user } } = await supabase.auth.getUser();
+            if (!user) return;
+
+            // Optimistic Update
+            setEvents(prev => prev.map(e => e.id === updatedEvent.id ? updatedEvent : e));
+
+            const { error } = await supabase
+                .from('events')
+                .update({
+                    title: updatedEvent.title,
+                    description: updatedEvent.description,
+                    time_text: updatedEvent.time,
+                    location: updatedEvent.location,
+                    image_url: updatedEvent.image_url,
+                    activity_type: updatedEvent.category,
+                    latitude: updatedEvent.latitude ?? null,
+                    longitude: updatedEvent.longitude ?? null,
+                    start_time: updatedEvent.startDate ? updatedEvent.startDate.toISOString() : null,
+                })
+                .eq('id', updatedEvent.id)
+                .eq('created_by', user.id); // Security check
+
+            if (error) {
+                console.error('Error updating event:', error);
+                // Revert (needs fetching to be accurate, or just simple fetch)
+                fetchEvents();
+            } else {
+                // Update chat name if title changed
+                const chatType = `event_${updatedEvent.id}`;
+                await supabase
+                    .from('chats')
+                    .update({ name: updatedEvent.title })
+                    .eq('type', chatType);
+            }
+        } catch (error) {
+            console.error('Error updating event:', error);
         }
     };
 
@@ -251,6 +342,7 @@ export const EventsProvider = ({ children }: { children: ReactNode }) => {
             joinEvent,
             leaveEvent,
             createEvent,
+            updateEvent,
             deleteEvent,
             loading
         }}>
