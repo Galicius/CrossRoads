@@ -1,10 +1,19 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, TextInput, TouchableOpacity, ScrollView, Alert } from 'react-native';
+import { View, Text, StyleSheet, TextInput, TouchableOpacity, ScrollView, Alert, Platform, ActivityIndicator } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import Ionicons from '@expo/vector-icons/Ionicons';
 import { supabase } from '../../lib/supabase';
 
 const EXPERTISE_OPTIONS = [
-    'Solar', 'Electrical', 'Plumbing', 'Carpentry', 'Metalwork', 'Mechanic', 'Insulation', 'Design'
+    { name: 'Solar', icon: 'sunny-outline' },
+    { name: 'Electrical', icon: 'flash-outline' },
+    { name: 'Plumbing', icon: 'water-outline' },
+    { name: 'Carpentry', icon: 'hammer-outline' },
+    { name: 'Metalwork', icon: 'settings-outline' },
+    { name: 'Mechanic', icon: 'car-outline' },
+    { name: 'Insulation', icon: 'home-outline' },
+    { name: 'Design', icon: 'brush-outline' }
 ];
 
 export default function BuilderRegistrationScreen() {
@@ -58,48 +67,179 @@ export default function BuilderRegistrationScreen() {
     };
 
     return (
-        <ScrollView style={styles.container}>
-            <Text style={styles.label}>Business / Display Name *</Text>
-            <TextInput style={styles.input} value={businessName} onChangeText={setBusinessName} placeholder="Nomad Customs" />
-
-            <Text style={styles.label}>Expertise (Select all that apply)</Text>
-            <View style={styles.chips}>
-                {EXPERTISE_OPTIONS.map(opt => (
-                    <TouchableOpacity
-                        key={opt}
-                        style={[styles.chip, expertise.includes(opt) && styles.chipActive]}
-                        onPress={() => toggleExpertise(opt)}
-                    >
-                        <Text style={[styles.chipText, expertise.includes(opt) && styles.chipTextActive]}>{opt}</Text>
-                    </TouchableOpacity>
-                ))}
+        <SafeAreaView style={styles.container}>
+            <View style={styles.header}>
+                <Text style={styles.headerTitle}>Become a Builder</Text>
+                <TouchableOpacity onPress={() => navigation.goBack()} style={styles.closeButton}>
+                    <Ionicons name="close" size={24} color="#333" />
+                </TouchableOpacity>
             </View>
 
-            <Text style={styles.label}>Hourly Rate ($) *</Text>
-            <TextInput style={styles.input} value={rate} onChangeText={setRate} keyboardType="numeric" placeholder="50" />
+            <ScrollView
+                style={styles.content}
+                contentContainerStyle={{ paddingBottom: 50 }}
+                keyboardShouldPersistTaps="handled"
+            >
+                <Text style={styles.inputLabel}>Business / Display Name *</Text>
+                <TextInput
+                    style={styles.modalInput}
+                    value={businessName}
+                    onChangeText={setBusinessName}
+                    placeholder="Nomad Customs"
+                />
 
-            <Text style={styles.label}>Travel Radius (km)</Text>
-            <TextInput style={styles.input} value={radius} onChangeText={setRadius} keyboardType="numeric" placeholder="50" />
+                <Text style={styles.inputLabel}>Expertise (Select all that apply)</Text>
+                <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.categorySelector}>
+                    {EXPERTISE_OPTIONS.map(opt => (
+                        <TouchableOpacity
+                            key={opt.name}
+                            style={[
+                                styles.categoryChip,
+                                expertise.includes(opt.name) && styles.categoryChipSelected
+                            ]}
+                            onPress={() => toggleExpertise(opt.name)}
+                        >
+                            <Ionicons
+                                name={opt.icon as any}
+                                size={16}
+                                color={expertise.includes(opt.name) ? 'white' : '#666'}
+                                style={{ marginRight: 6 }}
+                            />
+                            <Text style={[
+                                styles.categoryChipText,
+                                expertise.includes(opt.name) && styles.categoryChipTextSelected
+                            ]}>{opt.name}</Text>
+                        </TouchableOpacity>
+                    ))}
+                </ScrollView>
 
-            <Text style={styles.label}>Bio / Description</Text>
-            <TextInput style={[styles.input, { height: 100 }]} value={bio} onChangeText={setBio} multiline />
+                <Text style={styles.inputLabel}>Hourly Rate ($) *</Text>
+                <TextInput
+                    style={styles.modalInput}
+                    value={rate}
+                    onChangeText={setRate}
+                    keyboardType="numeric"
+                    placeholder="50"
+                />
 
-            <TouchableOpacity style={styles.btn} onPress={register} disabled={loading}>
-                <Text style={styles.btnText}>{loading ? 'Registering...' : 'Register as Builder'}</Text>
-            </TouchableOpacity>
-        </ScrollView>
+                <Text style={styles.inputLabel}>Travel Radius (km)</Text>
+                <TextInput
+                    style={styles.modalInput}
+                    value={radius}
+                    onChangeText={setRadius}
+                    keyboardType="numeric"
+                    placeholder="50"
+                />
+
+                <Text style={styles.inputLabel}>Bio / Description</Text>
+                <TextInput
+                    style={[styles.modalInput, styles.textArea]}
+                    value={bio}
+                    onChangeText={setBio}
+                    placeholder="Tell us about your services..."
+                    multiline
+                />
+
+                <TouchableOpacity
+                    style={styles.modalButton}
+                    onPress={register}
+                    disabled={loading}
+                >
+                    {loading ? (
+                        <ActivityIndicator color="white" />
+                    ) : (
+                        <Text style={styles.modalButtonText}>Register as Builder</Text>
+                    )}
+                </TouchableOpacity>
+            </ScrollView>
+        </SafeAreaView>
     );
 }
 
 const styles = StyleSheet.create({
-    container: { flex: 1, padding: 20, backgroundColor: 'white' },
-    label: { fontWeight: 'bold', marginTop: 15, marginBottom: 5 },
-    input: { borderWidth: 1, borderColor: '#ddd', borderRadius: 8, padding: 10, fontSize: 16 },
-    chips: { flexDirection: 'row', flexWrap: 'wrap' },
-    chip: { paddingHorizontal: 12, paddingVertical: 6, backgroundColor: '#f0f0f0', borderRadius: 15, marginRight: 8, marginBottom: 8 },
-    chipActive: { backgroundColor: '#FF6347' },
-    chipText: { color: '#333' },
-    chipTextActive: { color: 'white' },
-    btn: { backgroundColor: '#FF6347', padding: 15, borderRadius: 10, alignItems: 'center', marginTop: 30, marginBottom: 50 },
-    btnText: { color: 'white', fontWeight: 'bold', fontSize: 16 },
+    container: {
+        flex: 1,
+        backgroundColor: 'white'
+    },
+    header: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        paddingHorizontal: 20,
+        paddingVertical: 15,
+        borderBottomWidth: 1,
+        borderBottomColor: '#F0F0F0',
+    },
+    headerTitle: {
+        fontSize: 20,
+        fontWeight: 'bold',
+        color: '#333',
+    },
+    closeButton: {
+        padding: 4,
+    },
+    content: {
+        flex: 1,
+        padding: 20,
+    },
+    inputLabel: {
+        fontSize: 14,
+        fontWeight: '600',
+        color: '#666',
+        marginBottom: 8,
+        marginTop: 15,
+    },
+    modalInput: {
+        backgroundColor: '#F8F8F8',
+        borderRadius: 10,
+        padding: 12,
+        borderWidth: 1,
+        borderColor: '#EEE',
+        fontSize: 16,
+    },
+    textArea: {
+        height: 100,
+        textAlignVertical: 'top',
+    },
+    categorySelector: {
+        flexDirection: 'row',
+        marginBottom: 5,
+    },
+    categoryChip: {
+        paddingHorizontal: 16,
+        paddingVertical: 8,
+        borderRadius: 20,
+        backgroundColor: '#F0F0F0',
+        marginRight: 10,
+        borderWidth: 1,
+        borderColor: '#E0E0E0',
+    },
+    categoryChipSelected: {
+        backgroundColor: '#5B7FFF',
+        borderColor: '#5B7FFF',
+    },
+    categoryChipText: {
+        color: '#666',
+        fontWeight: '600',
+    },
+    categoryChipTextSelected: {
+        color: 'white',
+    },
+    modalButton: {
+        backgroundColor: '#5B7FFF',
+        paddingVertical: 15,
+        borderRadius: 25,
+        alignItems: 'center',
+        marginTop: 30,
+        shadowColor: '#5B7FFF',
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.3,
+        shadowRadius: 4,
+        elevation: 5,
+    },
+    modalButtonText: {
+        color: 'white',
+        fontWeight: 'bold',
+        fontSize: 16,
+    },
 });
