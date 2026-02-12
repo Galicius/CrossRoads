@@ -678,15 +678,6 @@ export default function SocialFeedScreen() {
                             </>
                         )}
                     </TouchableOpacity>
-                    {item.distanceKm != null && item.distanceKm < Infinity && (
-                        <View style={styles.onRouteBadge}>
-                            <Ionicons name="navigate" size={12} color="white" />
-                            <Text style={styles.onRouteBadgeText}>
-                                {item.distanceKm < 1 ? 'Nearby' : `${Math.round(item.distanceKm)} km away`}
-                            </Text>
-                        </View>
-                    )}
-                    {item.bio ? <Text style={styles.activityContent} numberOfLines={2}>{item.bio}</Text> : null}
                 </View>
             );
         }
