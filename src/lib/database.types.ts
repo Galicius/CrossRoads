@@ -154,6 +154,38 @@ export type Database = {
                 }
                 Relationships: []
             }
+            daily_activities: {
+                Row: {
+                    category: string
+                    content: string
+                    created_at: string
+                    id: string
+                    user_id: string
+                }
+                Insert: {
+                    category: string
+                    content: string
+                    created_at?: string
+                    id?: string
+                    user_id: string
+                }
+                Update: {
+                    category?: string
+                    content?: string
+                    created_at?: string
+                    id?: string
+                    user_id?: string
+                }
+                Relationships: [
+                    {
+                        foreignKeyName: "daily_activities_user_id_fkey"
+                        columns: ["user_id"]
+                        isOneToOne: true
+                        referencedRelation: "profiles"
+                        referencedColumns: ["id"]
+                    },
+                ]
+            }
             event_participants: {
                 Row: {
                     event_id: string

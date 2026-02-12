@@ -8,7 +8,7 @@ import { IconSymbol } from '@/components/ui/IconSymbol';
 import { PlaceAutocomplete } from '@/components/ui/PlaceAutocomplete';
 import { RouteMap, Checkpoint } from '@/components/map/RouteMap';
 
-const THEME_COLOR = '#5659ab';
+const THEME_COLOR = '#4d73ba';
 
 const ScreenWrapper = ({ children, title, step, totalSteps }: { children: React.ReactNode, title: string, step: number, totalSteps: number }) => (
     <View style={styles.container}>
@@ -403,7 +403,7 @@ const styles = StyleSheet.create({
     options: { flexDirection: 'row', flexWrap: 'wrap', gap: 10, marginBottom: 20 },
     optionChip: { paddingHorizontal: 20, paddingVertical: 10, backgroundColor: 'white', borderRadius: 20, borderWidth: 1, borderColor: '#eee' },
     selectedChip: { backgroundColor: THEME_COLOR, borderColor: THEME_COLOR },
-    optionText: { color: '#5659ab', fontWeight: '500' },
+    optionText: { color: '#4d73ba', fontWeight: '500' },
     selectedOptionText: { color: 'white' },
 
     // Gallery styles

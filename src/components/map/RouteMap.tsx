@@ -14,7 +14,7 @@ const styles = StyleSheet.create({
         width: 16,
         height: 16,
         borderRadius: 8,
-        backgroundColor: '#5659ab',
+        backgroundColor: '#4d73ba',
         borderWidth: 2,
         borderColor: '#fff',
         shadowColor: "#000",
@@ -39,7 +39,7 @@ const styles = StyleSheet.create({
         minWidth: 24, // Ensure minimum width
         alignItems: 'center'
     },
-    durationText: { fontSize: 12, fontWeight: '800', color: '#5659ab' },
+    durationText: { fontSize: 12, fontWeight: '800', color: '#4d73ba' },
 
     callout: {
         backgroundColor: 'white',
@@ -54,7 +54,7 @@ const styles = StyleSheet.create({
     calloutText: { fontSize: 10, color: '#666', textAlign: 'center' },
 
     vehicleMarker: {
-        backgroundColor: '#5659ab',
+        backgroundColor: '#4d73ba',
         padding: 6,
         borderRadius: 20,
         borderWidth: 2,
@@ -156,7 +156,7 @@ export function RouteMap({ checkpoints, interactive = false, onMarkerPress, styl
             {checkpoints.length > 1 && (
                 <Polyline
                     coordinates={routeCoordinates}
-                    strokeColor="#5659ab"
+                    strokeColor="#4d73ba"
                     strokeWidth={4}
                 />
             )}

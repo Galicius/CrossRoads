@@ -1,10 +1,10 @@
 import React, { useEffect, useState, useRef } from 'react';
-import { View, Text, StyleSheet, TextInput, TouchableOpacity, FlatList, KeyboardAvoidingView, Platform, ActivityIndicator, Image } from 'react-native';
+import { View, Text, StyleSheet, TextInput, TouchableOpacity, FlatList, KeyboardAvoidingView, Platform, ActivityIndicator } from 'react-native';
 import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
+import { Image } from 'expo-image';
+import Ionicons from '@expo/vector-icons/Ionicons';
 import { supabase } from '../../lib/supabase';
 import { IconSymbol } from '@/components/ui/IconSymbol';
-
-
 
 type ChatScreenRouteProp = RouteProp<{ ChatDetail: { chatId: string; otherUserName: string } }, 'ChatDetail'>;
 
@@ -38,7 +38,7 @@ export default function ChatScreen() {
                 .from('messages')
                 .select('*')
                 .eq('chat_id', chatId)
-                .order('created_at', { ascending: false }); // Order descending for inverted list
+                .order('created_at', { ascending: false });
 
             if (error) throw error;
             setMessages(data || []);
@@ -61,10 +61,9 @@ export default function ChatScreen() {
                     filter: `chat_id=eq.${chatId}`,
                 },
                 (payload) => {
-                    // Only add if not already in list (to avoid duplicate from optimistic update)
                     setMessages((prev) => {
                         if (prev.some(m => m.id === payload.new.id)) return prev;
-                        return [payload.new, ...prev]; // Add to start for inverted list
+                        return [payload.new, ...prev];
                     });
                 }
             )
@@ -77,7 +76,6 @@ export default function ChatScreen() {
         const content = text.trim();
         setText('');
 
-        // Optimistic Update
         const optimisticMessage = {
             id: `temp-${Date.now()}`,
             chat_id: chatId,
@@ -101,22 +99,24 @@ export default function ChatScreen() {
                 .single();
 
             if (error) throw error;
-
-            // Replace optimistic message with real one
             setMessages(prev => prev.map(m => m.id === optimisticMessage.id ? data : m));
-
         } catch (error) {
             console.error('Error sending message:', error);
-            // Ideally notify user and allow retry
         }
     };
 
     if (loading) {
-        return <View style={styles.center}><ActivityIndicator /></View>;
+        return <View style={styles.center}><ActivityIndicator color="#4d73ba" /></View>;
     }
 
     return (
         <View style={{ flex: 1, backgroundColor: '#fff' }}>
+            <Image
+                source={require('@/assets/images/image.jpg')}
+                style={StyleSheet.absoluteFill}
+                contentFit="cover"
+                contentPosition="center"
+            />
             <KeyboardAvoidingView
                 style={styles.container}
                 behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
@@ -124,6 +124,10 @@ export default function ChatScreen() {
             >
                 {/* Header */}
                 <View style={styles.header}>
+                    <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
+                        <Ionicons name="arrow-back" size={24} color="#1A1A1A" />
+                    </TouchableOpacity>
+
                     <View style={styles.headerCenter}>
                         <View style={styles.headerAvatar}>
                             <Image
@@ -133,14 +137,12 @@ export default function ChatScreen() {
                         </View>
                         <Text style={styles.headerTitle}>{otherUserName || 'Chat'}</Text>
                     </View>
-                    <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backToListButton}>
-                        <IconSymbol name="xmark" size={24} color="#333" />
-                    </TouchableOpacity>
+
+                    <View style={{ width: 40 }} />
                 </View>
 
-                {/* Messages Area with white background */}
+                {/* Messages Area */}
                 <View style={styles.messagesArea}>
-                    {/* Messages List */}
                     <FlatList
                         data={messages}
                         inverted
@@ -191,7 +193,7 @@ export default function ChatScreen() {
                 {/* Input Container */}
                 <View style={styles.inputContainer}>
                     <TouchableOpacity style={styles.addButton}>
-                        <IconSymbol name="plus.circle.fill" size={36} color="#5B7FFF" />
+                        <IconSymbol name="plus.circle.fill" size={36} color="#4d73ba" />
                     </TouchableOpacity>
                     <View style={styles.inputWrapper}>
                         <TextInput
@@ -209,7 +211,7 @@ export default function ChatScreen() {
                         </TouchableOpacity>
                     </View>
                     <TouchableOpacity onPress={sendMessage} style={styles.sendButton} disabled={!text.trim()}>
-                        <IconSymbol name="paperplane.fill" size={24} color={text.trim() ? "#5B7FFF" : "#8E8E93"} />
+                        <IconSymbol name="paperplane.fill" size={24} color={text.trim() ? "#4d73ba" : "#8E8E93"} />
                     </TouchableOpacity>
                 </View>
             </KeyboardAvoidingView>
@@ -220,7 +222,7 @@ export default function ChatScreen() {
 const styles = StyleSheet.create({
     container: {
         flex: 1,
-        backgroundColor: '#d4cbebff'
+        backgroundColor: 'transparent'
     },
     center: {
         flex: 1,
@@ -229,22 +231,22 @@ const styles = StyleSheet.create({
     },
     header: {
         flexDirection: 'row',
-        justifyContent: 'space-between',
         alignItems: 'center',
-        paddingHorizontal: 20,
+        paddingHorizontal: 15,
         paddingTop: 50,
         paddingBottom: 20,
-        backgroundColor: '#d4cbebff'
+        backgroundColor: 'transparent'
     },
     headerCenter: {
         flex: 1,
         flexDirection: 'row',
         alignItems: 'center',
         justifyContent: 'flex-start',
-        gap: 12
+        gap: 12,
+        marginLeft: 10
     },
-    backToListButton: {
-        padding: 4
+    backButton: {
+        padding: 5
     },
     messagesArea: {
         flex: 1,
@@ -306,7 +308,7 @@ const styles = StyleSheet.create({
         marginBottom: 4
     },
     myMessage: {
-        backgroundColor: '#C7B3E5',
+        backgroundColor: '#4d73ba',
         borderTopRightRadius: 4
     },
     theirMessage: {

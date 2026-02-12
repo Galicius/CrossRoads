@@ -1,11 +1,12 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, FlatList, TouchableOpacity, TextInput, ScrollView, Modal, TouchableWithoutFeedback, Keyboard, Platform } from 'react-native';
+import { View, Text, StyleSheet, FlatList, TouchableOpacity, TextInput, ScrollView, Modal, TouchableWithoutFeedback, Keyboard, Platform, Alert, ActivityIndicator } from 'react-native';
 import { Image } from 'expo-image';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { useEvents, Event } from '@/context/EventsContext';
 import { PlaceAutocomplete } from '@/components/ui/PlaceAutocomplete';
 import { supabase } from '@/lib/supabase';
+import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
 import DateTimePicker, { DateTimePickerEvent } from '@react-native-community/datetimepicker';
 
 // Haversine distance in km
@@ -29,8 +30,8 @@ function minDistanceToRoute(eventLat: number, eventLng: number, route: any[]): n
 
 const TABS = ['People', 'Events', 'Builders'];
 const TAGS = [
-    { name: 'Sports', icon: 'football-outline' },
-    { name: 'Arts', icon: 'color-palette-outline' },
+    { name: 'Sport', icon: 'football-outline' },
+    { name: 'Art', icon: 'color-palette-outline' },
     { name: 'Tech', icon: 'hardware-chip-outline' },
     { name: 'Music', icon: 'musical-notes-outline' }
 ];
@@ -41,10 +42,13 @@ const DEFAULT_ILLUSTRATION = 'https://images.unsplash.com/photo-1514525253440-b3
 export default function SocialFeedScreen() {
     const insets = useSafeAreaInsets();
     const { allEvents, createEvent, joinEvent } = useEvents();
+    const navigation = useNavigation<any>();
+    const route = useRoute<any>();
     const [activeTab, setActiveTab] = useState('Events');
     const [peopleData, setPeopleData] = useState<any[]>([]);
     const [builderData, setBuilderData] = useState<any[]>([]);
     const [loading, setLoading] = useState(false);
+    const [messagingLoading, setMessagingLoading] = useState<string | null>(null);
     const [searchText, setSearchText] = useState('');
 
     // Filter State
@@ -77,18 +81,110 @@ export default function SocialFeedScreen() {
     }, []);
 
     useEffect(() => {
+        // Handle navigation params
+        if (route.params?.activeTab) {
+            setActiveTab(route.params.activeTab);
+        }
+        if (route.params?.category) {
+            setSelectedCategories([route.params.category]);
+        }
+    }, [route.params]);
+
+    useEffect(() => {
         // Fetch other non-event data if needed
-        if (activeTab === 'People' && peopleData.length === 0) {
-            setPeopleData([
-                { id: '1', name: 'Jake', activity: 'Climbing', bio: 'Looking for a belay partner!' },
-                { id: '2', name: 'Sarah', activity: 'Skiing', bio: 'Heading to Tahoe this weekend.' },
-            ]);
+        if (activeTab === 'People') {
+            fetchPeopleActivities();
         } else if (activeTab === 'Builders' && builderData.length === 0) {
             setBuilderData([
                 { id: '1', name: 'TechHub', location: 'Downtown', description: 'Co-working space for founders.' }
             ]);
         }
     }, [activeTab]);
+
+    async function fetchPeopleActivities() {
+        try {
+            setLoading(true);
+            const { data, error } = await supabase
+                .from('daily_activities')
+                .select('*, profiles(*)');
+
+            if (error) throw error;
+            setPeopleData(data || []);
+        } catch (error) {
+            console.error('Error fetching people activities:', error);
+        } finally {
+            setLoading(false);
+        }
+    }
+
+    const handleStartChat = async (targetUser: any) => {
+        try {
+            setMessagingLoading(targetUser.id);
+            const { data: { user } } = await supabase.auth.getUser();
+            if (!user) {
+                Alert.alert('Error', 'Please log in to message.');
+                return;
+            }
+
+            if (user.id === targetUser.id) {
+                Alert.alert('Error', "You can't message yourself!");
+                return;
+            }
+
+            // 1. Check if a social chat already exists
+            const { data: existingChats, error: chatError } = await supabase
+                .from('chat_participants')
+                .select('chat_id, chats!inner(type)')
+                .eq('user_id', user.id)
+                .eq('chats.type', 'social');
+
+            if (chatError) throw chatError;
+
+            let chatId = null;
+            if (existingChats && existingChats.length > 0) {
+                // Check if targetUser is also in any of these chats
+                const chatIds = existingChats.map(c => c.chat_id);
+                const { data: sharedParticipants } = await supabase
+                    .from('chat_participants')
+                    .select('chat_id')
+                    .in('chat_id', chatIds)
+                    .eq('user_id', targetUser.id)
+                    .single();
+
+                if (sharedParticipants) {
+                    chatId = sharedParticipants.chat_id;
+                }
+            }
+
+            // 2. If not, create a new chat
+            if (!chatId) {
+                const { data: newChat, error: createError } = await supabase
+                    .from('chats')
+                    .insert({ type: 'social', name: 'Direct Message' })
+                    .select()
+                    .single();
+
+                if (createError) throw createError;
+                chatId = newChat.id;
+
+                // Add participants
+                await supabase.from('chat_participants').insert([
+                    { chat_id: chatId, user_id: user.id },
+                    { chat_id: chatId, user_id: targetUser.id }
+                ]);
+            }
+
+            navigation.navigate('ChatDetail', {
+                chatId: chatId,
+                otherUserName: targetUser.full_name || targetUser.username || 'User'
+            });
+
+        } catch (error: any) {
+            Alert.alert('Error', error.message);
+        } finally {
+            setMessagingLoading(null);
+        }
+    };
 
     const getFilteredData = () => {
         let currentData: any[] = [];
@@ -110,9 +206,13 @@ export default function SocialFeedScreen() {
             );
         }
 
-        // Filter by Category (only for Events)
-        if (activeTab === 'Events' && selectedCategories.length > 0) {
-            currentData = currentData.filter(item => selectedCategories.includes(item.category));
+        // Filter by Category
+        if (selectedCategories.length > 0) {
+            if (activeTab === 'Events') {
+                currentData = currentData.filter(item => selectedCategories.includes(item.category));
+            } else if (activeTab === 'People') {
+                currentData = currentData.filter(item => selectedCategories.includes(item.category));
+            }
         }
 
         // Sort events by proximity to user route
@@ -264,14 +364,59 @@ export default function SocialFeedScreen() {
             );
         }
 
-        // Fallback for other tabs
-        return (
-            <View style={styles.simpleCard}>
-                <Text style={styles.cardTitle}>{item.name || item.title}</Text>
-                <Text style={styles.cardSubtitle}>{item.activity || item.location}</Text>
-                <Text style={styles.cardDesc}>{item.bio || item.description}</Text>
-            </View>
-        );
+        if (activeTab === 'People') {
+            const activity = item;
+            const profile = activity.profiles;
+            return (
+                <View style={styles.personCard}>
+                    <View style={styles.personHeader}>
+                        <Image
+                            source={{ uri: profile?.avatar_url || 'https://images.unsplash.com/photo-1570295999919-56ceb5ecca61?ixlib=rb-1.2.1&auto=format&fit=crop&w=500&q=80' }}
+                            style={styles.personAvatar}
+                        />
+                        <View style={styles.personInfo}>
+                            <Text style={styles.personName}>{profile?.full_name || 'User'}</Text>
+                            <View style={styles.categoryBadgeSmall}>
+                                <Text style={styles.categoryBadgeTextSmall}>{activity.category}</Text>
+                            </View>
+                        </View>
+                        <TouchableOpacity
+                            style={styles.messageIconBtn}
+                            onPress={() => handleStartChat(profile)}
+                            disabled={messagingLoading === profile?.id}
+                        >
+                            {messagingLoading === profile?.id ? (
+                                <ActivityIndicator size="small" color="#4d73ba" />
+                            ) : (
+                                <Ionicons name="chatbubble-ellipses" size={24} color="#4d73ba" />
+                            )}
+                        </TouchableOpacity>
+                    </View>
+
+                    <Text style={styles.activityContent}>"{activity.content}"</Text>
+
+                    <TouchableOpacity
+                        style={styles.personMessageBtn}
+                        onPress={() => handleStartChat(profile)}
+                        disabled={messagingLoading === profile?.id}
+                    >
+                        <Text style={styles.personMessageBtnText}>Message</Text>
+                    </TouchableOpacity>
+                </View>
+            );
+        }
+
+        if (activeTab === 'Builders') {
+            return (
+                <View style={styles.simpleCard}>
+                    <Text style={styles.cardTitle}>{item.name}</Text>
+                    <Text style={styles.cardSubtitle}>{item.expertise?.join(', ')}</Text>
+                    <Text style={styles.cardDesc}>{item.bio}</Text>
+                </View>
+            );
+        }
+
+        return null;
     };
 
     return (
@@ -425,7 +570,12 @@ export default function SocialFeedScreen() {
                     <View style={styles.modalContent}>
                         <Text style={styles.modalTitle}>Add New Event</Text>
 
-                        <ScrollView style={{ maxHeight: 400 }}>
+                        <ScrollView
+                            style={{ maxHeight: 400 }}
+                            contentContainerStyle={{ paddingBottom: 200 }}
+                            keyboardShouldPersistTaps="handled"
+                            scrollEnabled={true}
+                        >
                             <Text style={styles.inputLabel}>Title</Text>
                             <TextInput
                                 style={styles.modalInput}
@@ -555,7 +705,6 @@ const styles = StyleSheet.create({
     container: {
         flex: 1,
         backgroundColor: '#E5E5EA', // Fallback
-
     },
     headerArea: {
         paddingHorizontal: 20,
@@ -581,7 +730,7 @@ const styles = StyleSheet.create({
         gap: 30,
         paddingLeft: 5,
         marginBottom: -3,
-        zIndex: 10
+        zIndex: 10,
     },
     tab: {
         paddingBottom: 15,
@@ -591,7 +740,7 @@ const styles = StyleSheet.create({
     tabText: {
         fontSize: 18,
         fontWeight: '600',
-        color: '#999',
+        color: 'white',
     },
     activeTabText: {
         color: '#1A1A1A',
@@ -602,9 +751,59 @@ const styles = StyleSheet.create({
         left: 0,
         right: 0,
         height: 4,
-        backgroundColor: '#5B7FFF',
-        borderTopLeftRadius: 2,
-        borderTopRightRadius: 2
+        backgroundColor: '#1A1A1A',
+        borderRadius: 2,
+    },
+    personCard: {
+        backgroundColor: 'white',
+        borderRadius: 20,
+        padding: 20,
+        marginBottom: 15,
+        elevation: 2,
+        shadowColor: '#000',
+        shadowOpacity: 0.05,
+        shadowRadius: 10,
+    },
+    personHeader: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        marginBottom: 15,
+    },
+    personAvatar: {
+        width: 50,
+        height: 50,
+        borderRadius: 25,
+        marginRight: 15,
+    },
+    personInfo: {
+        flex: 1,
+    },
+    personName: {
+        fontSize: 18,
+        fontWeight: 'bold',
+        color: '#1A1A1A',
+        marginBottom: 4,
+    },
+    messageIconBtn: {
+        padding: 8,
+    },
+    activityContent: {
+        fontSize: 16,
+        color: '#444',
+        fontStyle: 'italic',
+        lineHeight: 24,
+        marginBottom: 20,
+    },
+    personMessageBtn: {
+        backgroundColor: '#4d73ba',
+        padding: 12,
+        borderRadius: 12,
+        alignItems: 'center',
+    },
+    personMessageBtnText: {
+        color: 'white',
+        fontWeight: 'bold',
+        fontSize: 16,
     },
     contentContainer: {
         flex: 1,
@@ -652,7 +851,7 @@ const styles = StyleSheet.create({
     tagBadge: {
         flexDirection: 'row',
         alignItems: 'center',
-        backgroundColor: '#5659ab',
+        backgroundColor: '#4d73ba',
         paddingHorizontal: 16,
         paddingVertical: 8,
         borderRadius: 20,
@@ -766,8 +965,6 @@ const styles = StyleSheet.create({
     cardTitle: { fontSize: 18, fontWeight: 'bold' },
     cardSubtitle: { color: '#666', marginVertical: 4 },
     cardDesc: { color: '#444' },
-
-    // FAB
     fab: {
         position: 'absolute',
         right: 20,
@@ -783,8 +980,6 @@ const styles = StyleSheet.create({
         shadowRadius: 4.65,
         elevation: 8,
     },
-
-    // Modal
     modalOverlay: {
         flex: 1,
         backgroundColor: 'rgba(0,0,0,0.5)',
@@ -808,7 +1003,7 @@ const styles = StyleSheet.create({
         fontWeight: 'bold',
         marginBottom: 20,
         textAlign: 'center',
-        color: '#333'
+        color: '#333',
     },
     categoriesGrid: {
         flexDirection: 'row',
@@ -849,8 +1044,6 @@ const styles = StyleSheet.create({
         fontWeight: 'bold',
         fontSize: 16,
     },
-
-    // Add Event Specific
     inputLabel: {
         fontSize: 14,
         fontWeight: '600',
@@ -898,7 +1091,7 @@ const styles = StyleSheet.create({
         flexDirection: 'row',
         gap: 10,
         marginTop: 20,
-        justifyContent: 'space-between'
+        justifyContent: 'space-between',
     },
     cancelButton: {
         backgroundColor: '#F0F0F0',

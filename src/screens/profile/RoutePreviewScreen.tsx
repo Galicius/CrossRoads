@@ -91,7 +91,7 @@ const styles = StyleSheet.create({
         position: 'absolute',
         bottom: 30,
         right: 20,
-        backgroundColor: '#5659ab',
+        backgroundColor: '#4d73ba',
         flexDirection: 'row',
         alignItems: 'center',
         paddingVertical: 12,

@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { View, Text, StyleSheet, Dimensions, ScrollView, Image, ActivityIndicator, TouchableOpacity, Alert } from 'react-native';
+import { View, Text, StyleSheet, Dimensions, ScrollView, Image, ActivityIndicator, TouchableOpacity, Alert, TextInput } from 'react-native';
 import MapView, { Polyline, Marker, PROVIDER_GOOGLE } from 'react-native-maps';
 import { supabase } from '@/lib/supabase';
 import { useNavigation, useFocusEffect } from '@react-navigation/native';
@@ -26,6 +26,9 @@ export default function MyProfileScreen() {
     const { isPro } = useRevenueCat();
     const [activeTab, setActiveTab] = useState('Groups');
     const [showQR, setShowQR] = useState(false);
+    const [dailyActivity, setDailyActivity] = useState('');
+    const [dailyCategory, setDailyCategory] = useState('Sport');
+    const [isSavingActivity, setIsSavingActivity] = useState(false);
     const navigation = useNavigation<any>();
 
     useEffect(() => {
@@ -48,12 +51,63 @@ export default function MyProfileScreen() {
                 .single();
 
             if (data) setProfile(data);
+
+            // Fetch daily activity
+            const { data: activityData } = await supabase
+                .from('daily_activities')
+                .select('*')
+                .eq('user_id', user.id)
+                .single();
+
+            if (activityData) {
+                setDailyActivity(activityData.content);
+                setDailyCategory(activityData.category);
+            }
         } catch (error) {
             console.log('Error fetching profile:', error);
         } finally {
             setLoading(false);
         }
     }
+
+    const saveDailyActivity = async () => {
+        if (!dailyActivity.trim()) {
+            Alert.alert('Error', 'Please enter what you want to do today.');
+            return;
+        }
+
+        try {
+            setIsSavingActivity(true);
+            const { data: { user } } = await supabase.auth.getUser();
+            if (!user) return;
+
+            const { error } = await supabase
+                .from('daily_activities')
+                .upsert({
+                    user_id: user.id,
+                    content: dailyActivity,
+                    category: dailyCategory,
+                    created_at: new Date().toISOString()
+                });
+
+            if (error) throw error;
+
+            Alert.alert('Success', 'Activity saved!', [
+                { text: 'OK' },
+                {
+                    text: 'Find Friends',
+                    onPress: () => navigation.navigate('Social', {
+                        activeTab: 'People',
+                        category: dailyCategory
+                    })
+                }
+            ]);
+        } catch (error: any) {
+            Alert.alert('Error', error.message);
+        } finally {
+            setIsSavingActivity(false);
+        }
+    };
 
     const handleExitGroup = (eventId: string) => {
         Alert.alert(
@@ -127,7 +181,7 @@ export default function MyProfileScreen() {
     }, [routeCoordinates]);
 
     if (loading) {
-        return <View style={styles.center}><ActivityIndicator size="large" color="#5659ab" /></View>;
+        return <View style={styles.center}><ActivityIndicator size="large" color="#4d73ba" /></View>;
     }
 
     return (
@@ -163,7 +217,7 @@ export default function MyProfileScreen() {
                         {profile?.route_data && profile.route_data.length > 1 && (
                             <Polyline
                                 coordinates={routeCoordinates.length > 0 ? routeCoordinates : profile.route_data.map((p: any) => ({ latitude: p.lat, longitude: p.lng }))}
-                                strokeColor="#5659ab"
+                                strokeColor="#4d73ba"
                                 strokeWidth={3}
                             // lineDashPattern={[5, 5]} // Removed dash for solid road line
                             />
@@ -185,7 +239,7 @@ export default function MyProfileScreen() {
                             <>
                                 <Polyline
                                     coordinates={MOCK_PATH}
-                                    strokeColor="#5659ab"
+                                    strokeColor="#4d73ba"
                                     strokeWidth={3}
                                     lineDashPattern={[5, 5]}
                                 />
@@ -193,7 +247,7 @@ export default function MyProfileScreen() {
                                     <View style={styles.markerDot} />
                                 </Marker>
                                 <Marker coordinate={MOCK_PATH[1]}>
-                                    <IconSymbol name="mappin.circle.fill" size={30} color="#5659ab" />
+                                    <IconSymbol name="mappin.circle.fill" size={30} color="#4d73ba" />
                                 </Marker>
                             </>
                         )}
@@ -219,7 +273,7 @@ export default function MyProfileScreen() {
                             style={styles.editIcon}
                             onPress={() => navigation.navigate('EditProfileScreen')}
                         >
-                            <IconSymbol name="pencil" size={16} color="#5659ab" />
+                            <IconSymbol name="pencil" size={16} color="#4d73ba" />
                         </TouchableOpacity>
                     </View>
                 </View>
@@ -258,7 +312,7 @@ export default function MyProfileScreen() {
 
                 {/* Tabs */}
                 <View style={styles.tabsContainer}>
-                    {['Help', 'Groups'].map(tab => (
+                    {['Social', 'Help', 'Groups'].map(tab => (
                         <TouchableOpacity key={tab} onPress={() => setActiveTab(tab)} style={[styles.tab, activeTab === tab && styles.activeTab]}>
                             <Text style={[styles.tabText, activeTab === tab && styles.activeTabText]}>{tab}</Text>
                         </TouchableOpacity>
@@ -292,7 +346,7 @@ export default function MyProfileScreen() {
                                     <Text style={styles.activityDesc} numberOfLines={2}>{event.description}</Text>
                                     <View style={styles.activityFooter}>
                                         <View style={styles.timeTag}>
-                                            <IconSymbol name="clock" size={14} color="#5659ab" />
+                                            <IconSymbol name="clock" size={14} color="#4d73ba" />
                                             <Text style={styles.timeText}> {event.time}</Text>
                                         </View>
                                     </View>
@@ -302,10 +356,60 @@ export default function MyProfileScreen() {
                             <View style={[styles.activityCard, { alignItems: 'center', padding: 30 }]}>
                                 <Text style={{ color: '#999', textAlign: 'center' }}>No upcoming activities joined.</Text>
                                 <TouchableOpacity onPress={() => navigation.navigate('Social')} style={{ marginTop: 10 }}>
-                                    <Text style={{ color: '#5659ab', fontWeight: 'bold' }}>Find Events</Text>
+                                    <Text style={{ color: '#4d73ba', fontWeight: 'bold' }}>Find Events</Text>
                                 </TouchableOpacity>
                             </View>
                         )
+                    )}
+
+                    {activeTab === 'Social' && (
+                        <View style={styles.activityCard}>
+                            <Text style={styles.socialPrompt}>What do you want to do today?</Text>
+                            <TextInput
+                                style={styles.socialInput}
+                                placeholder="e.g. I want to go on a 5 hour hike"
+                                value={dailyActivity}
+                                onChangeText={setDailyActivity}
+                                multiline
+                            />
+
+                            <Text style={styles.categoryLabel}>Category</Text>
+                            <View style={styles.categoryRow}>
+                                {['Sport', 'Art', 'Tech', 'Music'].map(cat => (
+                                    <TouchableOpacity
+                                        key={cat}
+                                        style={[styles.categoryBtn, dailyCategory === cat && styles.activeCategoryBtn]}
+                                        onPress={() => setDailyCategory(cat)}
+                                    >
+                                        <Text style={[styles.categoryBtnText, dailyCategory === cat && styles.activeCategoryBtnText]}>{cat}</Text>
+                                    </TouchableOpacity>
+                                ))}
+                            </View>
+
+                            <TouchableOpacity
+                                style={styles.saveBtn}
+                                onPress={saveDailyActivity}
+                                disabled={isSavingActivity}
+                            >
+                                {isSavingActivity ? (
+                                    <ActivityIndicator color="white" />
+                                ) : (
+                                    <Text style={styles.saveBtnText}>Save Activity</Text>
+                                )}
+                            </TouchableOpacity>
+
+                            {dailyActivity && !isSavingActivity && (
+                                <TouchableOpacity
+                                    style={styles.findFriendBtn}
+                                    onPress={() => navigation.navigate('Social', {
+                                        activeTab: 'People',
+                                        category: dailyCategory
+                                    })}
+                                >
+                                    <Text style={styles.findFriendBtnText}>Find Friends</Text>
+                                </TouchableOpacity>
+                            )}
+                        </View>
                     )}
 
                     {activeTab === 'Help' && (
@@ -320,7 +424,7 @@ export default function MyProfileScreen() {
                 {profile?.invite_code && (
                     <View style={styles.inviteCard}>
                         <View style={styles.inviteHeader}>
-                            <Ionicons name="people-outline" size={20} color="#5659ab" />
+                            <Ionicons name="people-outline" size={20} color="#4d73ba" />
                             <Text style={styles.inviteTitle}>Your Invite Code</Text>
                         </View>
                         <Text style={styles.inviteSubtitle}>Share with new nomads to verify them</Text>
@@ -334,7 +438,7 @@ export default function MyProfileScreen() {
                                     Alert.alert('Copied!', 'Invite code copied to clipboard.');
                                 }}
                             >
-                                <Ionicons name="copy-outline" size={18} color="#5659ab" />
+                                <Ionicons name="copy-outline" size={18} color="#4d73ba" />
                                 <Text style={styles.copyBtnText}>Copy</Text>
                             </TouchableOpacity>
                         </View>
@@ -343,7 +447,7 @@ export default function MyProfileScreen() {
                             style={styles.qrToggle}
                             onPress={() => setShowQR(!showQR)}
                         >
-                            <Ionicons name={showQR ? "chevron-up" : "qr-code-outline"} size={16} color="#5659ab" />
+                            <Ionicons name={showQR ? "chevron-up" : "qr-code-outline"} size={16} color="#4d73ba" />
                             <Text style={styles.qrToggleText}>{showQR ? 'Hide QR' : 'Show QR Code'}</Text>
                         </TouchableOpacity>
 
@@ -374,7 +478,7 @@ const styles = StyleSheet.create({
     map: { ...StyleSheet.absoluteFillObject },
     curveContainer: { position: 'absolute', bottom: 0, width: '100%', height: 100, justifyContent: 'flex-end' },
     svgCurve: { position: 'absolute', bottom: -1 }, // Shift down to cover gap
-    markerDot: { width: 10, height: 10, borderRadius: 5, backgroundColor: '#5659ab' },
+    markerDot: { width: 10, height: 10, borderRadius: 5, backgroundColor: '#4d73ba' },
 
     avatarContainer: {
         position: 'absolute',
@@ -439,11 +543,11 @@ const styles = StyleSheet.create({
     inviteTitle: { fontSize: 16, fontWeight: 'bold', color: '#333' },
     inviteSubtitle: { fontSize: 12, color: '#999', marginTop: 4, marginBottom: 12 },
     codeRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', backgroundColor: '#f5f5ff', borderRadius: 12, padding: 14 },
-    codeText: { fontSize: 22, fontWeight: 'bold', letterSpacing: 3, color: '#5659ab' },
+    codeText: { fontSize: 22, fontWeight: 'bold', letterSpacing: 3, color: '#4d73ba' },
     copyBtn: { flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: '#eef0ff', paddingHorizontal: 12, paddingVertical: 8, borderRadius: 8 },
-    copyBtnText: { fontSize: 13, fontWeight: '600', color: '#5659ab' },
+    copyBtnText: { fontSize: 13, fontWeight: '600', color: '#4d73ba' },
     qrToggle: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, marginTop: 12, paddingVertical: 8 },
-    qrToggleText: { fontSize: 13, color: '#5659ab', fontWeight: '600' },
+    qrToggleText: { fontSize: 13, color: '#4d73ba', fontWeight: '600' },
     qrContainer: { alignItems: 'center', marginTop: 10, padding: 15, backgroundColor: 'white', borderRadius: 12, borderWidth: 1, borderColor: '#eee' },
     qrHint: { fontSize: 11, color: '#aaa', marginTop: 10 },
 
@@ -451,7 +555,7 @@ const styles = StyleSheet.create({
         flexDirection: 'row', paddingHorizontal: 40, marginTop: 30, borderBottomWidth: 1, borderBottomColor: '#eee'
     },
     tab: { paddingVertical: 15, paddingHorizontal: 10, marginRight: 20 },
-    activeTab: { borderBottomWidth: 2, borderBottomColor: '#5659ab' },
+    activeTab: { borderBottomWidth: 2, borderBottomColor: '#4d73ba' },
     tabText: { fontSize: 16, color: '#999', fontWeight: '600' },
     activeTabText: { color: '#333' },
 
@@ -493,5 +597,50 @@ const styles = StyleSheet.create({
     memberAvatar: { width: 24, height: 24, borderRadius: 12, marginRight: -8, borderWidth: 1, borderColor: 'white' },
     memberCount: { fontSize: 12, color: '#aaa', marginLeft: 15 },
     timeTag: { flexDirection: 'row', alignItems: 'center' },
-    timeText: { fontSize: 13, color: '#5659ab', marginLeft: 5, fontWeight: '600' }
+    timeText: { fontSize: 13, color: '#4d73ba', marginLeft: 5, fontWeight: '600' },
+
+    // Social Tab Styles
+    socialPrompt: { fontSize: 18, fontWeight: 'bold', color: '#333', marginBottom: 15 },
+    socialInput: {
+        backgroundColor: '#f5f5ff',
+        borderRadius: 12,
+        padding: 15,
+        fontSize: 16,
+        color: '#333',
+        minHeight: 100,
+        textAlignVertical: 'top',
+        marginBottom: 20
+    },
+    categoryLabel: { fontSize: 14, fontWeight: '600', color: '#666', marginBottom: 10 },
+    categoryRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 10, marginBottom: 25 },
+    categoryBtn: {
+        paddingHorizontal: 15,
+        paddingVertical: 8,
+        borderRadius: 20,
+        backgroundColor: '#f0f0f0',
+        borderWidth: 1,
+        borderColor: '#ddd'
+    },
+    activeCategoryBtn: {
+        backgroundColor: '#4d73ba',
+        borderColor: '#4d73ba'
+    },
+    categoryBtnText: { fontSize: 14, color: '#666' },
+    activeCategoryBtnText: { color: 'white', fontWeight: 'bold' },
+    saveBtn: {
+        backgroundColor: '#4d73ba',
+        padding: 16,
+        borderRadius: 12,
+        alignItems: 'center',
+        marginBottom: 10
+    },
+    saveBtnText: { color: 'white', fontWeight: 'bold', fontSize: 16 },
+    findFriendBtn: {
+        padding: 12,
+        borderRadius: 12,
+        alignItems: 'center',
+        borderWidth: 1,
+        borderColor: '#4d73ba'
+    },
+    findFriendBtnText: { color: '#4d73ba', fontWeight: 'bold' }
 });
