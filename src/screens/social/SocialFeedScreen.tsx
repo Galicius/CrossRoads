@@ -29,7 +29,7 @@ function minDistanceToRoute(eventLat: number, eventLng: number, route: any[]): n
     return min;
 }
 
-const TABS = ['People', 'Events', 'Builders'];
+const TABS = ['Events', 'People', 'Builders'];
 const TAGS = [
     { name: 'Sport', icon: 'football-outline' },
     { name: 'Art', icon: 'color-palette-outline' },
@@ -580,40 +580,46 @@ export default function SocialFeedScreen() {
             const profile = activity.profiles;
             return (
                 <View style={styles.personCard}>
-                    <View style={styles.personHeader}>
+                    <View style={styles.personCardContent}>
                         <ExpoImage
                             source={{ uri: profile?.avatar_url || 'https://images.unsplash.com/photo-1570295999919-56ceb5ecca61?ixlib=rb-1.2.1&auto=format&fit=crop&w=500&q=80' }}
                             style={styles.personAvatar}
                         />
                         <View style={styles.personInfo}>
-                            <Text style={styles.personName}>{profile?.full_name || 'User'}</Text>
-                            <View style={styles.categoryBadgeSmall}>
-                                <Text style={styles.categoryBadgeTextSmall}>{activity.category}</Text>
+                            <View style={styles.personHeaderRow}>
+                                <Text style={styles.personName}>{profile?.full_name || 'User'}</Text>
+                                <View style={styles.categoryBadgeTopRight}>
+                                    <Text style={styles.categoryBadgeTextSmall}>{activity.category}</Text>
+                                </View>
                             </View>
-                        </View>
-                        <TouchableOpacity
-                            style={styles.messageIconBtn}
-                            onPress={() => handleStartChat(profile)}
-                            disabled={messagingLoading === profile?.id}
-                        >
-                            {messagingLoading === profile?.id ? (
-                                <ActivityIndicator size="small" color="#4d73ba" />
-                            ) : (
-                                <Ionicons name="chatbubble-ellipses" size={24} color="#4d73ba" />
+
+                            {item.distanceKm != null && item.distanceKm < Infinity && (
+                                <View style={styles.distanceContainer}>
+                                    <Text style={styles.distanceText}>
+                                        {item.distanceKm < 1 ? 'Nearby' : `${Math.round(item.distanceKm)} km away`}
+                                    </Text>
+                                </View>
                             )}
-                        </TouchableOpacity>
+
+                            <Text style={styles.activityContent} numberOfLines={2}>{activity.content}</Text>
+                        </View>
                     </View>
 
-                    {item.distanceKm != null && item.distanceKm < Infinity && (
-                        <View style={styles.onRouteBadge}>
-                            <Ionicons name="navigate" size={12} color="white" />
-                            <Text style={styles.onRouteBadgeText}>
-                                {item.distanceKm < 1 ? 'Nearby' : `${Math.round(item.distanceKm)} km away`}
-                            </Text>
-                        </View>
-                    )}
+                    <TouchableOpacity
+                        style={styles.chatActionButton}
+                        onPress={() => handleStartChat(profile)}
+                        disabled={messagingLoading === profile?.id}
+                    >
+                        {messagingLoading === profile?.id ? (
+                            <ActivityIndicator size="small" color="#fff" />
+                        ) : (
+                            <>
+                                <Ionicons name="chatbubbles-outline" size={18} color="#fff" style={{ marginRight: 6 }} />
+                                <Text style={styles.chatActionButtonText}>Chat</Text>
+                            </>
+                        )}
+                    </TouchableOpacity>
 
-                    <Text style={styles.activityContent}>"{activity.content}"</Text>
                 </View>
             );
         }
@@ -622,27 +628,51 @@ export default function SocialFeedScreen() {
             const builderProfile = item.profiles;
             return (
                 <View style={styles.personCard}>
-                    <View style={styles.personHeader}>
+                    <View style={styles.personCardContent}>
                         <ExpoImage
                             source={{ uri: builderProfile?.avatar_url || 'https://images.unsplash.com/photo-1570295999919-56ceb5ecca61?ixlib=rb-1.2.1&auto=format&fit=crop&w=500&q=80' }}
                             style={styles.personAvatar}
                         />
                         <View style={styles.personInfo}>
-                            <Text style={styles.personName}>{item.business_name || builderProfile?.full_name || 'Builder'}</Text>
-                            <Text style={styles.builderRate}>${item.hourly_rate}/hr</Text>
-                        </View>
-                        <TouchableOpacity
-                            style={styles.messageIconBtn}
-                            onPress={() => handleStartBuilderChat(item)}
-                            disabled={messagingLoading === item.id}
-                        >
-                            {messagingLoading === item.id ? (
-                                <ActivityIndicator size="small" color="#4d73ba" />
-                            ) : (
-                                <Ionicons name="chatbubble-ellipses" size={24} color="#4d73ba" />
+                            <View style={styles.personHeaderRow}>
+                                <Text style={styles.personName}>{item.business_name || builderProfile?.full_name || 'Builder'}</Text>
+                                <Text style={styles.builderRate}>${item.hourly_rate}/hr</Text>
+                            </View>
+
+                            {item.distanceKm != null && item.distanceKm < Infinity && (
+                                <View style={styles.distanceContainer}>
+                                    <Text style={styles.distanceText}>
+                                        {item.distanceKm < 1 ? 'Nearby' : `${Math.round(item.distanceKm)} km away`}
+                                    </Text>
+                                </View>
                             )}
-                        </TouchableOpacity>
+
+                            {item.bio ? <Text style={styles.activityContent} numberOfLines={2}>{item.bio}</Text> : null}
+
+                            <View style={styles.builderChips}>
+                                {item.expertise?.slice(0, 4).map((ex: string) => (
+                                    <View key={ex} style={styles.builderChip}>
+                                        <Text style={styles.builderChipText}>{ex}</Text>
+                                    </View>
+                                ))}
+                            </View>
+                        </View>
                     </View>
+
+                    <TouchableOpacity
+                        style={styles.chatActionButton}
+                        onPress={() => handleStartBuilderChat(item)}
+                        disabled={messagingLoading === item.id}
+                    >
+                        {messagingLoading === item.id ? (
+                            <ActivityIndicator size="small" color="#fff" />
+                        ) : (
+                            <>
+                                <Ionicons name="chatbubbles-outline" size={18} color="#fff" style={{ marginRight: 6 }} />
+                                <Text style={styles.chatActionButtonText}>Chat</Text>
+                            </>
+                        )}
+                    </TouchableOpacity>
                     <View style={styles.builderChips}>
                         {item.expertise?.slice(0, 4).map((ex: string) => (
                             <View key={ex} style={styles.builderChip}>
@@ -839,9 +869,17 @@ export default function SocialFeedScreen() {
                                         </TouchableOpacity>
                                     ))}
                                 </View>
-                                <TouchableOpacity style={styles.modalButton} onPress={() => setFilterModalVisible(false)}>
-                                    <Text style={styles.modalButtonText}>Apply Filters</Text>
-                                </TouchableOpacity>
+                                <View style={styles.modalActions}>
+                                    <TouchableOpacity
+                                        style={[styles.modalButton, styles.cancelButton]}
+                                        onPress={() => setFilterModalVisible(false)}
+                                    >
+                                        <Text style={[styles.modalButtonText, styles.cancelButtonText]}>Cancel</Text>
+                                    </TouchableOpacity>
+                                    <TouchableOpacity style={styles.modalButton} onPress={() => setFilterModalVisible(false)}>
+                                        <Text style={styles.modalButtonText}>Apply Filters</Text>
+                                    </TouchableOpacity>
+                                </View>
                             </View>
                         </TouchableWithoutFeedback>
                     </View>
@@ -1103,43 +1141,89 @@ const styles = StyleSheet.create({
     },
     personCard: {
         backgroundColor: 'white',
-        borderRadius: 20,
-        padding: 20,
-        marginBottom: 15,
-        elevation: 2,
+        borderRadius: 16,
+        padding: 12,
+        marginBottom: 16,
         shadowColor: '#000',
-        shadowOpacity: 0.05,
-        shadowRadius: 10,
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.08,
+        shadowRadius: 8,
+        elevation: 3,
+        borderWidth: 1,
+        borderColor: '#f8f8f8',
+        position: 'relative',
     },
-    personHeader: {
+    personCardContent: {
         flexDirection: 'row',
+        marginBottom: 8,
+    },
+    personHeaderRow: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
         alignItems: 'center',
-        marginBottom: 15,
+        marginBottom: 4,
     },
     personAvatar: {
-        width: 50,
-        height: 50,
-        borderRadius: 25,
-        marginRight: 15,
+        width: 60,
+        height: 60,
+        borderRadius: 30,
+        marginRight: 12,
+        backgroundColor: '#ddd',
     },
     personInfo: {
         flex: 1,
+        justifyContent: 'center',
     },
     personName: {
-        fontSize: 18,
+        fontSize: 16,
         fontWeight: 'bold',
         color: '#1A1A1A',
         marginBottom: 4,
+        marginRight: 80, // Space for category badge
     },
-    messageIconBtn: {
-        padding: 8,
+    categoryBadgeTopRight: {
+        position: 'absolute',
+        top: 0,
+        right: 0,
+        backgroundColor: '#F0F4FF',
+        paddingHorizontal: 8,
+        paddingVertical: 4,
+        borderRadius: 12,
+    },
+    chatActionButton: {
+        backgroundColor: '#5B7FFF', // Matched to Join button (Violet)
+        paddingVertical: 8,
+        paddingHorizontal: 12,
+        borderRadius: 20,
+        flexDirection: 'row',
+        alignItems: 'center',
+        alignSelf: 'flex-end',
+        marginTop: 4,
+    },
+    chatActionButtonText: {
+        color: 'white',
+        fontSize: 13,
+        fontWeight: '600',
+    },
+    distanceContainer: {
+        marginBottom: 4,
+        alignSelf: 'flex-start',
+        borderBottomWidth: 1,
+        borderColor: '#5B7FFF',
+        borderStyle: 'dashed',
+    },
+    distanceText: {
+        color: '#5B7FFF',
+        fontSize: 12,
+        fontWeight: '600',
+        paddingBottom: 2,
     },
     activityContent: {
-        fontSize: 16,
-        color: '#444',
-        fontStyle: 'italic',
-        lineHeight: 24,
-        marginBottom: 20,
+        fontSize: 14,
+        color: '#666',
+        // fontStyle: 'italic', // Removed italics
+        lineHeight: 20,
+        marginBottom: 8,
     },
     personMessageBtn: {
         backgroundColor: '#4d73ba',
