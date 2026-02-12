@@ -11,6 +11,8 @@ const APIKeys = {
 
 const ENTITLEMENT_ID = 'CrossRoads Pro';
 
+let isRCConfigured = false;
+
 interface RevenueCatContextType {
     customerInfo: CustomerInfo | null;
     isPro: boolean;
@@ -28,10 +30,13 @@ export const RevenueCatProvider: React.FC<{ children: React.ReactNode }> = ({ ch
 
     useEffect(() => {
         const init = async () => {
-            if (Platform.OS === 'android') {
-                await Purchases.configure({ apiKey: APIKeys.google });
-            } else {
-                await Purchases.configure({ apiKey: APIKeys.google });
+            if (!isRCConfigured) {
+                if (Platform.OS === 'android') {
+                    await Purchases.configure({ apiKey: APIKeys.google });
+                } else {
+                    await Purchases.configure({ apiKey: APIKeys.google });
+                }
+                isRCConfigured = true;
             }
 
             const info = await Purchases.getCustomerInfo();

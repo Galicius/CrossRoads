@@ -7,6 +7,8 @@ import { PlaceAutocomplete } from '@/components/ui/PlaceAutocomplete';
 import { IconSymbol } from '@/components/ui/IconSymbol';
 import { supabase } from '@/lib/supabase';
 import DateTimePicker from '@react-native-community/datetimepicker';
+import { Toast } from '@/components/ui/Toast';
+
 
 export default function EditRouteScreen() {
     const navigation = useNavigation<any>();
@@ -17,6 +19,12 @@ export default function EditRouteScreen() {
     // For editing a specific checkpoint's details
     const [editingId, setEditingId] = useState<string | null>(null);
     const [showDatePicker, setShowDatePicker] = useState<{ id: string, type: 'start' | 'end' } | null>(null);
+    const [toast, setToast] = useState<{ visible: boolean; message: string; type: 'success' | 'error' }>({
+        visible: false,
+        message: '',
+        type: 'success'
+    });
+
 
     useEffect(() => {
         if (route.params?.currentRoute) {
@@ -80,11 +88,15 @@ export default function EditRouteScreen() {
                 throw error;
             }
 
-            Alert.alert("Success", "Route updated successfully!");
-            navigation.goBack();
+            setToast({ visible: true, message: "Route updated successfully!", type: 'success' });
+            setTimeout(() => {
+                navigation.goBack();
+            }, 1000);
+
         } catch (error: any) {
             console.error("Save error:", error);
-            Alert.alert("Error", error.message);
+            setToast({ visible: true, message: error.message, type: 'error' });
+
         } finally {
             setLoading(false);
         }
@@ -198,7 +210,15 @@ export default function EditRouteScreen() {
                     onChange={onDateChange}
                 />
             )}
+
+            <Toast
+                visible={toast.visible}
+                message={toast.message}
+                type={toast.type}
+                onHide={() => setToast(prev => ({ ...prev, visible: false }))}
+            />
         </SafeAreaView>
+
     );
 }
 
