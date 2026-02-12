@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import Purchases, { CustomerInfo, PurchasesPackage } from 'react-native-purchases';
+import RevenueCatUI, { PAYWALL_RESULT } from "react-native-purchases-ui";
 import { Platform, Alert } from 'react-native';
 import { supabase } from '../lib/supabase';
 
@@ -19,6 +20,8 @@ interface RevenueCatContextType {
     currentOffering: PurchasesPackage[] | null;
     purchasePackage: (pack: PurchasesPackage) => Promise<void>;
     restorePurchases: () => Promise<void>;
+    presentPaywall: () => Promise<boolean>;
+    presentPaywallIfNeeded: () => Promise<boolean>;
 }
 
 const RevenueCatContext = createContext<RevenueCatContextType | undefined>(undefined);
@@ -127,6 +130,41 @@ export const RevenueCatProvider: React.FC<{ children: React.ReactNode }> = ({ ch
         }
     }
 
+    const presentPaywall = async (): Promise<boolean> => {
+        // Present paywall for current offering:
+        const paywallResult: PAYWALL_RESULT = await RevenueCatUI.presentPaywall();
+
+        switch (paywallResult) {
+            case PAYWALL_RESULT.NOT_PRESENTED:
+            case PAYWALL_RESULT.ERROR:
+            case PAYWALL_RESULT.CANCELLED:
+                return false;
+            case PAYWALL_RESULT.PURCHASED:
+            case PAYWALL_RESULT.RESTORED:
+                return true;
+            default:
+                return false;
+        }
+    };
+
+    const presentPaywallIfNeeded = async (): Promise<boolean> => {
+        const paywallResult: PAYWALL_RESULT = await RevenueCatUI.presentPaywallIfNeeded({
+            requiredEntitlementIdentifier: ENTITLEMENT_ID
+        });
+
+        switch (paywallResult) {
+            case PAYWALL_RESULT.NOT_PRESENTED:
+            case PAYWALL_RESULT.ERROR:
+            case PAYWALL_RESULT.CANCELLED:
+                return false;
+            case PAYWALL_RESULT.PURCHASED:
+            case PAYWALL_RESULT.RESTORED:
+                return true;
+            default:
+                return false;
+        }
+    };
+
     const purchasePackage = async (pack: PurchasesPackage) => {
         try {
             const { customerInfo } = await Purchases.purchasePackage(pack);
@@ -151,7 +189,7 @@ export const RevenueCatProvider: React.FC<{ children: React.ReactNode }> = ({ ch
     };
 
     return (
-        <RevenueCatContext.Provider value={{ customerInfo, isPro, currentOffering, purchasePackage, restorePurchases }}>
+        <RevenueCatContext.Provider value={{ customerInfo, isPro, currentOffering, purchasePackage, restorePurchases, presentPaywall, presentPaywallIfNeeded }}>
             {children}
         </RevenueCatContext.Provider>
     );
