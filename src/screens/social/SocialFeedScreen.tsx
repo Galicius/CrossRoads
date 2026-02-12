@@ -570,7 +570,12 @@ export default function SocialFeedScreen() {
                     <View style={styles.modalContent}>
                         <Text style={styles.modalTitle}>Add New Event</Text>
 
-                        <ScrollView style={{ maxHeight: 400 }}>
+                        <ScrollView
+                            style={{ maxHeight: 400 }}
+                            contentContainerStyle={{ paddingBottom: 200 }}
+                            keyboardShouldPersistTaps="handled"
+                            scrollEnabled={true}
+                        >
                             <Text style={styles.inputLabel}>Title</Text>
                             <TextInput
                                 style={styles.modalInput}

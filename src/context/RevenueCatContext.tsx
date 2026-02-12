@@ -5,8 +5,8 @@ import { supabase } from '../lib/supabase';
 
 // Use your actual RevenueCat API Keys here
 const APIKeys = {
-    apple: 'appl_...', // Placeholder if you have iOS
-    google: 'test_VueXBLyHSQqNDRtChujRasAahhY', // Provided key
+    apple: process.env.EXPO_PUBLIC_REVENUECAT_APPLE_KEY || 'appl_...', // Placeholder if you have iOS
+    google: process.env.EXPO_PUBLIC_REVENUECAT_GOOGLE_KEY || 'test_VueXBLyHSQqNDRtChujRasAahhY', // Provided key
 };
 
 const ENTITLEMENT_ID = 'CrossRoads Pro';

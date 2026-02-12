@@ -106,12 +106,9 @@ export function PlaceAutocomplete({ onSelect, placeholder = "Search for a city..
 
             {showResults && results.length > 0 && (
                 <View style={styles.resultsContainer}>
-                    <FlatList
-                        data={results}
-                        keyExtractor={(item) => item.place_id.toString()}
-                        keyboardShouldPersistTaps="handled"
-                        renderItem={({ item }) => (
-                            <TouchableOpacity style={styles.resultItem} onPress={() => handleSelect(item)}>
+                    <View>
+                        {results.map((item) => (
+                            <TouchableOpacity key={item.place_id.toString()} style={styles.resultItem} onPress={() => handleSelect(item)}>
                                 <IconSymbol name="mappin.circle.fill" size={20} color="#4d73ba" />
                                 <View style={styles.resultTextContainer}>
                                     <Text style={styles.resultMainText}>
@@ -122,8 +119,8 @@ export function PlaceAutocomplete({ onSelect, placeholder = "Search for a city..
                                     </Text>
                                 </View>
                             </TouchableOpacity>
-                        )}
-                    />
+                        ))}
+                    </View>
                 </View>
             )}
         </View>
