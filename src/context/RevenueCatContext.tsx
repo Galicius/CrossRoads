@@ -30,26 +30,43 @@ export const RevenueCatProvider: React.FC<{ children: React.ReactNode }> = ({ ch
 
     useEffect(() => {
         const init = async () => {
-            if (!isRCConfigured) {
-                if (Platform.OS === 'android') {
-                    await Purchases.configure({ apiKey: APIKeys.google });
-                } else {
-                    await Purchases.configure({ apiKey: APIKeys.google });
-                }
-                isRCConfigured = true;
-            }
-
-            const info = await Purchases.getCustomerInfo();
-            setCustomerInfo(info);
-            checkEntitlements(info);
-
             try {
-                const offerings = await Purchases.getOfferings();
-                if (offerings.current && offerings.current.availablePackages.length !== 0) {
-                    setCurrentOffering(offerings.current.availablePackages);
+                if (!isRCConfigured) {
+                    isRCConfigured = true;
+                    const apiKey = Platform.OS === 'android' ? APIKeys.google : APIKeys.apple;
+                    console.log('RC: Configuring with API Key:', apiKey?.substring(0, 8) + '...');
+
+                    if (Platform.OS === 'android') {
+                        await Purchases.configure({ apiKey: APIKeys.google });
+                    } else {
+                        await Purchases.configure({ apiKey: APIKeys.apple });
+                    }
+                    console.log('RC: Configured successfully');
+                }
+
+                // Set debug logs level
+                await Purchases.setLogLevel(Purchases.LOG_LEVEL.DEBUG);
+
+                const info = await Purchases.getCustomerInfo();
+                console.log('RC: Customer Info fetched:', info?.entitlements?.active);
+                setCustomerInfo(info);
+                checkEntitlements(info);
+
+                try {
+                    const offerings = await Purchases.getOfferings();
+                    console.log('RC: Offerings fetched:', JSON.stringify(offerings, null, 2));
+
+                    if (offerings.current && offerings.current.availablePackages.length !== 0) {
+                        console.log('RC: Current offering has packages:', offerings.current.availablePackages.length);
+                        setCurrentOffering(offerings.current.availablePackages);
+                    } else {
+                        console.log('RC: Current offering is empty or missing. Check RevenueCat dashboard.');
+                    }
+                } catch (e) {
+                    console.error('RC: Error fetching offerings', e);
                 }
             } catch (e) {
-                console.error('Error fetching offerings', e);
+                console.error('RC: Error initializing', e);
             }
         };
 
@@ -57,6 +74,7 @@ export const RevenueCatProvider: React.FC<{ children: React.ReactNode }> = ({ ch
 
         // Listen for customer info changes (e.g. purchase completed, restored, etc.)
         Purchases.addCustomerInfoUpdateListener((info) => {
+            console.log('RC: Customer Info updated:', info?.entitlements?.active);
             setCustomerInfo(info);
             checkEntitlements(info);
         });
@@ -66,18 +84,32 @@ export const RevenueCatProvider: React.FC<{ children: React.ReactNode }> = ({ ch
         const pro = typeof info.entitlements.active[ENTITLEMENT_ID] !== 'undefined';
         setIsPro(pro);
 
-        // Sync verification status if user is a builder
+        // Sync verification status for all users (and builders if applicable)
         if (pro) {
-            syncBuilderVerification();
+            syncVerification();
         }
     };
 
-    const syncBuilderVerification = async () => {
+    const syncVerification = async () => {
         try {
             const { data: { user } } = await supabase.auth.getUser();
             if (!user) return;
 
-            // Check if user is a builder
+            // 1. Verify Main Profile (for all users)
+            const { data: profile } = await supabase
+                .from('profiles')
+                .select('is_verified')
+                .eq('id', user.id)
+                .single();
+
+            if (profile && !profile.is_verified) {
+                await supabase
+                    .from('profiles')
+                    .update({ is_verified: true })
+                    .eq('id', user.id);
+            }
+
+            // 2. Verify Builder Profile (if exists)
             const { data: builder } = await supabase
                 .from('builder_profiles')
                 .select('id, is_verified')
@@ -91,7 +123,7 @@ export const RevenueCatProvider: React.FC<{ children: React.ReactNode }> = ({ ch
                     .eq('id', user.id);
             }
         } catch (error) {
-            console.log('Error syncing builder verification:', error);
+            console.log('Error syncing verification:', error);
         }
     }
 
