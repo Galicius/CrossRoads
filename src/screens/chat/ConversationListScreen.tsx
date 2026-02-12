@@ -158,17 +158,23 @@ export default function ConversationListScreen() {
                             style={styles.item}
                             onPress={() => navigation.navigate('ChatDetail', {
                                 chatId: item.id,
-                                otherUserName: item.chatName || 'User'
+                                otherUserName: item.chatName || 'User',
+                                otherUserAvatar: item.otherUser?.images?.[0] || null,
+                                isGroup: item.isEvent
                             })}
                         >
                             <View style={styles.avatarContainer}>
                                 <View style={styles.avatar}>
-                                    {item.otherUser?.images && item.otherUser.images[0] ? (
-                                        <Image source={{ uri: item.otherUser.images[0] }} style={styles.avatarImage} />
+                                    {item.isEvent ? (
+                                        <Image source={require('@/assets/images/activity.jpg')} style={styles.avatarImage} />
                                     ) : (
-                                        <View style={styles.avatarPlaceholder}>
-                                            <TelegramIcon name={item.isEvent ? "calendar" : "person"} size={24} color="white" />
-                                        </View>
+                                        item.otherUser?.images?.[0] ? (
+                                            <Image source={{ uri: item.otherUser.images[0] }} style={styles.avatarImage} />
+                                        ) : (
+                                            <View style={styles.avatarPlaceholder}>
+                                                <TelegramIcon name="person" size={24} color="white" />
+                                            </View>
+                                        )
                                     )}
                                 </View>
                                 <View style={styles.onlineIndicator} />

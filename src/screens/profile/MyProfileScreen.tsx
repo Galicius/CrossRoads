@@ -151,6 +151,34 @@ export default function MyProfileScreen() {
         );
     };
 
+    const handleEventChat = async (event: any) => {
+        try {
+            // @ts-ignore
+            const { data: chatId, error } = await supabase.rpc('get_or_create_event_chat', {
+                _event_id: event.id,
+                _event_name: event.title
+            });
+
+            if (error) throw error;
+            if (chatId) {
+                // Navigate to Chat tab first, then to the specific conversation
+                navigation.navigate('Chat', { initialTab: 'events' });
+
+                // Small delay to ensure tab switch completes before pushing detail
+                setTimeout(() => {
+                    navigation.navigate('ChatDetail', {
+                        chatId,
+                        otherUserName: event.title,
+                        isGroup: true,
+                        otherUserAvatar: event.image_url
+                    });
+                }, 100);
+            }
+        } catch (error: any) {
+            Alert.alert('Error', 'Could not open chat: ' + error.message);
+        }
+    };
+
     const [routeCoordinates, setRouteCoordinates] = useState<{ latitude: number, longitude: number }[]>([]);
 
     useEffect(() => {
@@ -215,14 +243,6 @@ export default function MyProfileScreen() {
 
     return (
         <View style={styles.container}>
-            {/* Header Title Overlay */}
-            <View style={styles.headerOverlay}>
-                <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
-                    <IconSymbol name="chevron.left" size={24} color="#333" />
-                </TouchableOpacity>
-                <Text style={styles.headerTitle}>Your Account</Text>
-                <View style={{ width: 24 }} />
-            </View>
 
             <ScrollView contentContainerStyle={styles.scrollContent}>
 
@@ -411,7 +431,7 @@ export default function MyProfileScreen() {
                                             </TouchableOpacity>
                                             <TouchableOpacity
                                                 style={[styles.actionBtn, styles.chatActionButton]}
-                                                onPress={() => console.log('Chat with group', event.id)}
+                                                onPress={() => handleEventChat(event)}
                                             >
                                                 <Ionicons
                                                     name="chatbubbles-outline"
@@ -529,9 +549,9 @@ export default function MyProfileScreen() {
 
                 </View>
 
-                {/* Invite Code Sharing */}
+                {/* Invite Code Sharing - Only for Verified Users */}
                 {
-                    profile?.invite_code && (
+                    profile?.invite_code && profile?.is_verified && (
                         <View style={styles.inviteCard}>
                             <View style={styles.inviteHeader}>
                                 <Ionicons name="people-outline" size={20} color="#4d73ba" />
@@ -571,6 +591,15 @@ export default function MyProfileScreen() {
                     )
                 }
             </ScrollView >
+
+            {/* Fixed Header - Outside ScrollView, at bottom of JSX for top rendering */}
+            <View style={styles.headerOverlay}>
+                <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
+                    <Ionicons name="arrow-back" size={24} color="#333" />
+                </TouchableOpacity>
+                <Text style={styles.headerTitle}>Your Account</Text>
+                <View style={{ width: 24 }} />
+            </View>
         </View >
     );
 }
@@ -872,7 +901,7 @@ const styles = StyleSheet.create({
         alignItems: 'center',
         paddingVertical: 10,
         paddingHorizontal: 16,
-        borderRadius: 10,
+        borderRadius: 20, // Increased from 10 to 20 for more rounded appearance
         gap: 6,
     },
     deleteActionButton: {

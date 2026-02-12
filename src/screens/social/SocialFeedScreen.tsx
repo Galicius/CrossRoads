@@ -443,7 +443,12 @@ export default function SocialFeedScreen() {
                     params: { initialTab: 'events' }
                 });
                 setTimeout(() => {
-                    navigation.navigate('ChatDetail', { chatId, otherUserName: event.title });
+                    navigation.navigate('ChatDetail', {
+                        chatId,
+                        otherUserName: event.title,
+                        isGroup: true,
+                        otherUserAvatar: event.image_url
+                    });
                 }, 100);
             } else {
                 Alert.alert('Error', 'Could not initialize chat (No ID returned).');
