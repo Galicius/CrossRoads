@@ -16,6 +16,7 @@ import { supabase } from '../../lib/supabase';
 import { useRevenueCat } from '../../context/RevenueCatContext';
 import { IconSymbol } from '../../components/ui/IconSymbol';
 import { useNavigation } from '@react-navigation/native';
+import Ionicons from '@expo/vector-icons/Ionicons';
 
 const { width, height } = Dimensions.get('window');
 const SWIPE_THRESHOLD = width * 0.3;
@@ -241,10 +242,16 @@ export default function DatingScreenV2() {
 
     if (currentIndex >= profiles.length) {
         return (
-            <View style={styles.center}>
-                <Text>No more profiles!</Text>
-                <TouchableOpacity onPress={loadProfiles}>
-                    <Text style={{ color: 'blue', marginTop: 10 }}>Refresh</Text>
+            <View style={styles.emptyContainer}>
+                <View style={styles.emptyIconContainer}>
+                    <Ionicons name="people-outline" size={80} color="#DDD" />
+                </View>
+                <Text style={styles.emptyTitle}>No more profiles!</Text>
+                <Text style={styles.emptySubtext}>No more profiles nearby at the moment.</Text>
+
+                <TouchableOpacity style={styles.refreshButton} onPress={loadProfiles}>
+                    <Ionicons name="refresh" size={20} color="white" style={{ marginRight: 8 }} />
+                    <Text style={styles.refreshButtonText}>Refresh</Text>
                 </TouchableOpacity>
             </View>
         );
@@ -306,12 +313,52 @@ export default function DatingScreenV2() {
 const styles = StyleSheet.create({
     container: {
         flex: 1,
-        backgroundColor: '#F2F2F7',
+        backgroundColor: 'white',
     },
     center: {
         flex: 1,
         justifyContent: 'center',
         alignItems: 'center',
+    },
+    emptyContainer: {
+        flex: 1,
+        justifyContent: 'center',
+        alignItems: 'center',
+        backgroundColor: 'white',
+        paddingHorizontal: 40,
+    },
+    emptyIconContainer: {
+        marginBottom: 20,
+    },
+    emptyTitle: {
+        fontSize: 24,
+        fontWeight: 'bold',
+        color: '#333',
+        marginBottom: 10,
+    },
+    emptySubtext: {
+        fontSize: 16,
+        color: '#666',
+        textAlign: 'center',
+        marginBottom: 30,
+    },
+    refreshButton: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        backgroundColor: '#5B7FFF', // Updated violet color
+        paddingVertical: 12,
+        paddingHorizontal: 25,
+        borderRadius: 25,
+        shadowColor: '#5B7FFF',
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.3,
+        shadowRadius: 4,
+        elevation: 5,
+    },
+    refreshButtonText: {
+        color: 'white',
+        fontWeight: 'bold',
+        fontSize: 16,
     },
     cardsContainer: {
         flex: 1,
