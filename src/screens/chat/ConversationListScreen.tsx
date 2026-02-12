@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { View, Text, StyleSheet, FlatList, TouchableOpacity, ActivityIndicator, Image } from 'react-native';
-import { useNavigation } from '@react-navigation/native';
+import { useNavigation, useRoute } from '@react-navigation/native';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { supabase } from '../../lib/supabase';
 import { IconSymbol } from '@/components/ui/IconSymbol';
@@ -15,10 +15,19 @@ const TABS: { key: ChatType; label: string; icon: any; emptyText: string }[] = [
 
 export default function ConversationListScreen() {
     const navigation = useNavigation<any>();
+    const route = useRoute<any>();
     const [conversations, setConversations] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
     const [initialLoad, setInitialLoad] = useState(true);
     const [activeTab, setActiveTab] = useState<ChatType>('dating');
+
+    // Handle initialTab from navigation params
+    useEffect(() => {
+        if (route.params?.initialTab) {
+            setActiveTab(route.params.initialTab as ChatType);
+            setInitialLoad(true);
+        }
+    }, [route.params?.initialTab]);
 
     useEffect(() => {
         loadConversations();

@@ -150,6 +150,10 @@ const RootStack = createNativeStackNavigator({
       screen: require('../screens/dating/ProfileDetailScreen').default,
       options: { presentation: 'modal', headerShown: false },
     },
+    BuilderRegistration: {
+      screen: require('../screens/builders/BuilderRegistrationScreen').default,
+      options: { title: 'Become a Builder' },
+    },
   },
 });
 

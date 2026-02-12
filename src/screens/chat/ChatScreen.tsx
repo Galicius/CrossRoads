@@ -99,7 +99,16 @@ export default function ChatScreen() {
                 .single();
 
             if (error) throw error;
-            setMessages(prev => prev.map(m => m.id === optimisticMessage.id ? data : m));
+            // Replace optimistic message with real one, but only if realtime hasn't already added it
+            setMessages(prev => {
+                const hasReal = prev.some(m => m.id === data.id);
+                if (hasReal) {
+                    // Realtime already added it — just remove the optimistic
+                    return prev.filter(m => m.id !== optimisticMessage.id);
+                }
+                // Replace optimistic with real
+                return prev.map(m => m.id === optimisticMessage.id ? data : m);
+            });
         } catch (error) {
             console.error('Error sending message:', error);
         }
