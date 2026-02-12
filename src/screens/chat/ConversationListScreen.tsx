@@ -88,7 +88,7 @@ export default function ConversationListScreen() {
                 return {
                     id: p.chat_id,
                     otherUser: p.profiles,
-                    chatName: isEvent ? chatInfo?.name : (p.profiles?.name || p.profiles?.username || 'User'),
+                    chatName: isEvent ? chatInfo?.name : (p.profiles?.full_name || p.profiles?.username || 'User'),
                     isEvent,
                     lastMessage: 'Chat now!',
                     time: ''
@@ -158,7 +158,7 @@ export default function ConversationListScreen() {
                             style={styles.item}
                             onPress={() => navigation.navigate('ChatDetail', {
                                 chatId: item.id,
-                                otherUserName: item.otherUser?.name || item.otherUser?.username || 'User'
+                                otherUserName: item.chatName || 'User'
                             })}
                         >
                             <View style={styles.avatarContainer}>
