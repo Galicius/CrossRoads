@@ -122,7 +122,7 @@ export default function ChatScreen() {
         <View style={{ flex: 1, backgroundColor: '#fff' }}>
             <Image
                 source={require('@/assets/images/image.jpg')}
-                style={StyleSheet.absoluteFill}
+                style={styles.backgroundImage}
                 contentFit="cover"
                 contentPosition="center"
             />
@@ -150,78 +150,81 @@ export default function ChatScreen() {
                     <View style={{ width: 40 }} />
                 </View>
 
-                {/* Messages Area */}
-                <View style={styles.messagesArea}>
-                    <FlatList
-                        data={messages}
-                        inverted
-                        keyExtractor={(item) => item.id}
-                        renderItem={({ item, index }) => {
-                            const isMe = item.sender_id === currentUser?.id;
-                            const showDate = index === messages.length - 1 ||
-                                (messages[index + 1] &&
-                                    new Date(item.created_at).toDateString() !== new Date(messages[index + 1].created_at).toDateString());
+                {/* White Container for Messages and Input */}
+                <View style={styles.whiteContainer}>
+                    {/* Messages Area */}
+                    <View style={styles.messagesArea}>
+                        <FlatList
+                            data={messages}
+                            inverted
+                            keyExtractor={(item) => item.id}
+                            renderItem={({ item, index }) => {
+                                const isMe = item.sender_id === currentUser?.id;
+                                const showDate = index === messages.length - 1 ||
+                                    (messages[index + 1] &&
+                                        new Date(item.created_at).toDateString() !== new Date(messages[index + 1].created_at).toDateString());
 
-                            const time = new Date(item.created_at).toLocaleTimeString('en-US', {
-                                hour: 'numeric',
-                                minute: '2-digit',
-                                hour12: true
-                            });
+                                const time = new Date(item.created_at).toLocaleTimeString('en-US', {
+                                    hour: 'numeric',
+                                    minute: '2-digit',
+                                    hour12: true
+                                });
 
-                            return (
-                                <View>
-                                    {showDate && (
-                                        <View style={styles.dateSeparator}>
-                                            <Text style={styles.dateText}>Today</Text>
-                                        </View>
-                                    )}
-                                    <View style={[
-                                        styles.messageContainer,
-                                        isMe ? styles.myMessageContainer : styles.theirMessageContainer
-                                    ]}>
+                                return (
+                                    <View>
+                                        {showDate && (
+                                            <View style={styles.dateSeparator}>
+                                                <Text style={styles.dateText}>Today</Text>
+                                            </View>
+                                        )}
                                         <View style={[
-                                            styles.messageBubble,
-                                            isMe ? styles.myMessage : styles.theirMessage,
-                                            item.pending && { opacity: 0.7 }
+                                            styles.messageContainer,
+                                            isMe ? styles.myMessageContainer : styles.theirMessageContainer
                                         ]}>
-                                            <Text style={isMe ? styles.myMessageText : styles.theirMessageText}>
-                                                {item.content}
+                                            <View style={[
+                                                styles.messageBubble,
+                                                isMe ? styles.myMessage : styles.theirMessage,
+                                                item.pending && { opacity: 0.7 }
+                                            ]}>
+                                                <Text style={isMe ? styles.myMessageText : styles.theirMessageText}>
+                                                    {item.content}
+                                                </Text>
+                                            </View>
+                                            <Text style={[styles.timestamp, isMe && styles.myTimestamp]}>
+                                                {time}
                                             </Text>
                                         </View>
-                                        <Text style={[styles.timestamp, isMe && styles.myTimestamp]}>
-                                            {time}
-                                        </Text>
                                     </View>
-                                </View>
-                            );
-                        }}
-                        contentContainerStyle={styles.listContent}
-                    />
-                </View>
-
-                {/* Input Container */}
-                <View style={styles.inputContainer}>
-                    <TouchableOpacity style={styles.addButton}>
-                        <IconSymbol name="plus.circle.fill" size={36} color="#4d73ba" />
-                    </TouchableOpacity>
-                    <View style={styles.inputWrapper}>
-                        <TextInput
-                            style={styles.input}
-                            value={text}
-                            onChangeText={setText}
-                            placeholder="Message..."
-                            placeholderTextColor="#8E8E93"
-                            returnKeyType="send"
-                            onSubmitEditing={sendMessage}
-                            multiline
+                                );
+                            }}
+                            contentContainerStyle={styles.listContent}
                         />
-                        <TouchableOpacity style={styles.emojiButton}>
-                            <IconSymbol name="face.smiling" size={24} color="#8E8E93" />
+                    </View>
+
+                    {/* Input Container */}
+                    <View style={styles.inputContainer}>
+                        <TouchableOpacity style={styles.addButton}>
+                            <IconSymbol name="plus.circle.fill" size={36} color="#4d73ba" />
+                        </TouchableOpacity>
+                        <View style={styles.inputWrapper}>
+                            <TextInput
+                                style={styles.input}
+                                value={text}
+                                onChangeText={setText}
+                                placeholder="Message..."
+                                placeholderTextColor="#8E8E93"
+                                returnKeyType="send"
+                                onSubmitEditing={sendMessage}
+                                multiline
+                            />
+                            <TouchableOpacity style={styles.emojiButton}>
+                                <IconSymbol name="face.smiling" size={24} color="#8E8E93" />
+                            </TouchableOpacity>
+                        </View>
+                        <TouchableOpacity onPress={sendMessage} style={styles.sendButton} disabled={!text.trim()}>
+                            <IconSymbol name="paperplane.fill" size={24} color={text.trim() ? "#4d73ba" : "#8E8E93"} />
                         </TouchableOpacity>
                     </View>
-                    <TouchableOpacity onPress={sendMessage} style={styles.sendButton} disabled={!text.trim()}>
-                        <IconSymbol name="paperplane.fill" size={24} color={text.trim() ? "#4d73ba" : "#8E8E93"} />
-                    </TouchableOpacity>
                 </View>
             </KeyboardAvoidingView>
         </View>
@@ -231,7 +234,13 @@ export default function ChatScreen() {
 const styles = StyleSheet.create({
     container: {
         flex: 1,
-        backgroundColor: 'transparent'
+    },
+    backgroundImage: {
+        position: 'absolute',
+        top: -85,
+        left: 0,
+        right: 0,
+        bottom: 130,
     },
     center: {
         flex: 1,
@@ -257,12 +266,15 @@ const styles = StyleSheet.create({
     backButton: {
         padding: 5
     },
-    messagesArea: {
+    whiteContainer: {
         flex: 1,
         backgroundColor: 'white',
         borderTopLeftRadius: 30,
         borderTopRightRadius: 30,
         overflow: 'hidden'
+    },
+    messagesArea: {
+        flex: 1,
     },
     headerAvatar: {
         width: 36,
@@ -347,7 +359,7 @@ const styles = StyleSheet.create({
         paddingHorizontal: 15,
         paddingVertical: 12,
         alignItems: 'flex-end',
-        backgroundColor: 'white'
+        backgroundColor: 'white' // Ensure this matches whiteContainer
     },
     addButton: {
         marginRight: 10,

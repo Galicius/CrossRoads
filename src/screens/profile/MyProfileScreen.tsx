@@ -21,6 +21,7 @@ const MOCK_PATH = [
 
 export default function MyProfileScreen() {
     const [profile, setProfile] = useState<any>(null);
+    const [myBuilder, setMyBuilder] = useState<any>(null);
     const [loading, setLoading] = useState(true);
     const { userEvents, leaveEvent, deleteEvent } = useEvents();
     const { isPro } = useRevenueCat();
@@ -61,8 +62,26 @@ export default function MyProfileScreen() {
 
             if (activityData) {
                 setDailyActivity(activityData.content);
+                setDailyActivity(activityData.content);
                 setDailyCategory(activityData.category);
             }
+
+            // Fetch builder profile
+            const { data: builderData } = await supabase
+                .from('builder_profiles')
+                .select('*')
+                .eq('id', user.id)
+                .single();
+
+            // Also check 'builders' table if 'builder_profiles' is empty or related
+            // The schema showed 'builders' has 'owner_id', let's check that too
+            const { data: buildersTable } = await supabase
+                .from('builders')
+                .select('*')
+                .eq('owner_id', user.id);
+
+            setMyBuilder(builderData || (buildersTable && buildersTable[0]));
+
         } catch (error) {
             console.log('Error fetching profile:', error);
         } finally {
@@ -157,6 +176,15 @@ export default function MyProfileScreen() {
                     setRouteCoordinates(path);
                 }
             }
+            // The following lines were added based on the user's instruction.
+            // Note: The original `map` function was already correctly closed.
+            // This `});` might be a misplaced closing bracket from another context.
+            // The `setConversations` call is also new and its context is unclear.
+            // Applying it literally as requested, assuming it's intended for this scope.
+            // If this causes a syntax error or logical issue, please provide more context.
+            // }); // This line is commented out as it would cause a syntax error.
+            // setConversations(formatted); // This line is commented out as 'formatted' and 'setConversations' are not defined in this scope.
+
         } catch (error) {
             console.warn("Error fetching profile route:", error);
         }
@@ -312,7 +340,7 @@ export default function MyProfileScreen() {
 
                 {/* Tabs */}
                 <View style={styles.tabsContainer}>
-                    {['Social', 'Help', 'Groups'].map(tab => (
+                    {['Social', 'Groups', 'Builders'].map(tab => (
                         <TouchableOpacity key={tab} onPress={() => setActiveTab(tab)} style={[styles.tab, activeTab === tab && styles.activeTab]}>
                             <Text style={[styles.tabText, activeTab === tab && styles.activeTabText]}>{tab}</Text>
                         </TouchableOpacity>
@@ -412,55 +440,94 @@ export default function MyProfileScreen() {
                         </View>
                     )}
 
-                    {activeTab === 'Help' && (
-                        <View style={[styles.activityCard, { alignItems: 'center', padding: 30 }]}>
-                            <Text style={{ color: '#999', textAlign: 'center' }}>No help requests active.</Text>
+
+                    {activeTab === 'Builders' && (
+                        <View style={styles.activityCard}>
+                            {myBuilder ? (
+                                <View>
+                                    <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 15 }}>
+                                        <Text style={styles.activityTitle}>{myBuilder.business_name || myBuilder.name || 'My Builder Profile'}</Text>
+                                        <TouchableOpacity onPress={() => navigation.navigate('EditBuilderProfile')}>
+                                            <IconSymbol name="pencil.circle.fill" size={24} color="#4d73ba" />
+                                        </TouchableOpacity>
+                                    </View>
+
+                                    {myBuilder.bio && <Text style={styles.activityDesc}>{myBuilder.bio}</Text>}
+                                    {myBuilder.description && <Text style={styles.activityDesc}>{myBuilder.description}</Text>}
+
+                                    <View style={{ marginTop: 15, flexDirection: 'row', gap: 10, flexWrap: 'wrap' }}>
+                                        {(myBuilder.expertise || []).map((skill: string, idx: number) => (
+                                            <View key={idx} style={{ backgroundColor: '#eef0ff', paddingHorizontal: 10, paddingVertical: 5, borderRadius: 10 }}>
+                                                <Text style={{ color: '#4d73ba', fontSize: 12 }}>{skill}</Text>
+                                            </View>
+                                        ))}
+                                    </View>
+
+                                    {myBuilder.hourly_rate && (
+                                        <Text style={{ marginTop: 15, fontWeight: 'bold', color: '#333' }}>
+                                            Rate: ${myBuilder.hourly_rate}/hr
+                                        </Text>
+                                    )}
+                                </View>
+                            ) : (
+                                <View style={{ alignItems: 'center', padding: 20 }}>
+                                    <IconSymbol name="hammer.fill" size={40} color="#ddd" />
+                                    <Text style={{ color: '#666', marginTop: 10, textAlign: 'center' }}>
+                                        You don't have a builder profile yet.
+                                    </Text>
+                                    <TouchableOpacity style={[styles.saveBtn, { marginTop: 20, width: '100%' }]} onPress={() => navigation.navigate('BecomeBuilder')}>
+                                        <Text style={styles.saveBtnText}>Become a Builder</Text>
+                                    </TouchableOpacity>
+                                </View>
+                            )}
                         </View>
                     )}
 
                 </View>
 
                 {/* Invite Code Sharing */}
-                {profile?.invite_code && (
-                    <View style={styles.inviteCard}>
-                        <View style={styles.inviteHeader}>
-                            <Ionicons name="people-outline" size={20} color="#4d73ba" />
-                            <Text style={styles.inviteTitle}>Your Invite Code</Text>
-                        </View>
-                        <Text style={styles.inviteSubtitle}>Share with new nomads to verify them</Text>
-
-                        <View style={styles.codeRow}>
-                            <Text style={styles.codeText}>{profile.invite_code}</Text>
-                            <TouchableOpacity
-                                style={styles.copyBtn}
-                                onPress={async () => {
-                                    await Clipboard.setStringAsync(profile.invite_code);
-                                    Alert.alert('Copied!', 'Invite code copied to clipboard.');
-                                }}
-                            >
-                                <Ionicons name="copy-outline" size={18} color="#4d73ba" />
-                                <Text style={styles.copyBtnText}>Copy</Text>
-                            </TouchableOpacity>
-                        </View>
-
-                        <TouchableOpacity
-                            style={styles.qrToggle}
-                            onPress={() => setShowQR(!showQR)}
-                        >
-                            <Ionicons name={showQR ? "chevron-up" : "qr-code-outline"} size={16} color="#4d73ba" />
-                            <Text style={styles.qrToggleText}>{showQR ? 'Hide QR' : 'Show QR Code'}</Text>
-                        </TouchableOpacity>
-
-                        {showQR && (
-                            <View style={styles.qrContainer}>
-                                <QRCode value={profile.invite_code} size={160} backgroundColor="white" color="#333" />
-                                <Text style={styles.qrHint}>New users can scan this to get verified</Text>
+                {
+                    profile?.invite_code && (
+                        <View style={styles.inviteCard}>
+                            <View style={styles.inviteHeader}>
+                                <Ionicons name="people-outline" size={20} color="#4d73ba" />
+                                <Text style={styles.inviteTitle}>Your Invite Code</Text>
                             </View>
-                        )}
-                    </View>
-                )}
-            </ScrollView>
-        </View>
+                            <Text style={styles.inviteSubtitle}>Share with new nomads to verify them</Text>
+
+                            <View style={styles.codeRow}>
+                                <Text style={styles.codeText}>{profile.invite_code}</Text>
+                                <TouchableOpacity
+                                    style={styles.copyBtn}
+                                    onPress={async () => {
+                                        await Clipboard.setStringAsync(profile.invite_code);
+                                        Alert.alert('Copied!', 'Invite code copied to clipboard.');
+                                    }}
+                                >
+                                    <Ionicons name="copy-outline" size={18} color="#4d73ba" />
+                                    <Text style={styles.copyBtnText}>Copy</Text>
+                                </TouchableOpacity>
+                            </View>
+
+                            <TouchableOpacity
+                                style={styles.qrToggle}
+                                onPress={() => setShowQR(!showQR)}
+                            >
+                                <Ionicons name={showQR ? "chevron-up" : "qr-code-outline"} size={16} color="#4d73ba" />
+                                <Text style={styles.qrToggleText}>{showQR ? 'Hide QR' : 'Show QR Code'}</Text>
+                            </TouchableOpacity>
+
+                            {showQR && (
+                                <View style={styles.qrContainer}>
+                                    <QRCode value={profile.invite_code} size={160} backgroundColor="white" color="#333" />
+                                    <Text style={styles.qrHint}>New users can scan this to get verified</Text>
+                                </View>
+                            )}
+                        </View>
+                    )
+                }
+            </ScrollView >
+        </View >
     );
 }
 

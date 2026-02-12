@@ -19,13 +19,18 @@ interface Place {
 interface PlaceAutocompleteProps {
     onSelect: (place: { name: string; lat: number; lng: number }) => void;
     placeholder?: string;
+    initialValue?: string;
 }
 
-export function PlaceAutocomplete({ onSelect, placeholder = "Search for a city..." }: PlaceAutocompleteProps) {
-    const [query, setQuery] = useState('');
+export function PlaceAutocomplete({ onSelect, placeholder = "Search for a city...", initialValue = '' }: PlaceAutocompleteProps) {
+    const [query, setQuery] = useState(initialValue);
     const [results, setResults] = useState<Place[]>([]);
     const [loading, setLoading] = useState(false);
     const [showResults, setShowResults] = useState(false);
+
+    React.useEffect(() => {
+        setQuery(initialValue);
+    }, [initialValue]);
 
     const searchPlaces = async (text: string) => {
         if (!text || text.length < 3) {

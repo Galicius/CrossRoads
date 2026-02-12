@@ -123,8 +123,8 @@ export default function AuthScreen() {
     return (
         <KeyboardAvoidingView
             style={styles.container}
-            behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-            keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 20}
+            behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+            keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 0}
         >
             <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
                 <View style={styles.innerContainer}>
@@ -199,7 +199,7 @@ export default function AuthScreen() {
 
 const styles = StyleSheet.create({
     container: { flex: 1, backgroundColor: 'white' },
-    innerContainer: { flex: 1 },
+    innerContainer: { flex: 1, backgroundColor: 'white' },
     content: { flex: 1, justifyContent: 'center', padding: 35 },
     title: { fontSize: 32, fontWeight: 'bold', color: '#4d73ba', marginBottom: 10, marginTop: 50 },
     subtitle: { fontSize: 16, color: '#666', marginBottom: 35 },

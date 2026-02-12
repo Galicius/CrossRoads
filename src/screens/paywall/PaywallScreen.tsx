@@ -54,11 +54,10 @@ export default function PaywallScreen() {
     return (
         <View style={styles.container}>
             {/* Header */}
-            <LinearGradient colors={['#5B7FFF', '#8B5CF6']} style={styles.header}>
+            <LinearGradient colors={['#4d73ba', '#2a4e8d']} style={styles.header}>
                 <TouchableOpacity style={styles.closeBtn} onPress={() => navigation.goBack()}>
                     <Text style={styles.closeBtnText}>✕</Text>
                 </TouchableOpacity>
-                <Text style={styles.headerEmoji}>⚡</Text>
                 <Text style={styles.headerTitle}>CrossRoads Pro</Text>
                 <Text style={styles.headerSubtitle}>Unlock the full experience</Text>
             </LinearGradient>
@@ -66,7 +65,7 @@ export default function PaywallScreen() {
             <ScrollView style={styles.content} contentContainerStyle={styles.contentInner}>
                 {/* Benefits */}
                 <View style={styles.benefitsContainer}>
-                    {['Unlimited daily swipes', 'Verified builder badge', 'Priority support', 'Early access to features'].map((benefit, i) => (
+                    {['Unlimited interactions', 'Verified Pro Badge', 'Priority support', 'Early access to features'].map((benefit, i) => (
                         <View key={i} style={styles.benefitRow}>
                             <Text style={styles.benefitCheck}>✓</Text>
                             <Text style={styles.benefitText}>{benefit}</Text>
@@ -137,16 +136,21 @@ const styles = StyleSheet.create({
     contentInner: { padding: 24 },
     benefitsContainer: { marginBottom: 24 },
     benefitRow: { flexDirection: 'row', alignItems: 'center', marginBottom: 12 },
-    benefitCheck: { fontSize: 18, color: '#34C759', fontWeight: 'bold', marginRight: 12 },
+    benefitCheck: { fontSize: 18, color: '#4d73ba', fontWeight: 'bold', marginRight: 12 },
     benefitText: { fontSize: 16, color: '#333' },
     packageButton: {
-        backgroundColor: '#5B7FFF',
+        backgroundColor: '#4d73ba',
         borderRadius: 16,
         padding: 18,
         marginBottom: 12,
         flexDirection: 'row',
         justifyContent: 'space-between',
         alignItems: 'center',
+        elevation: 2,
+        shadowColor: '#4d73ba',
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.2,
+        shadowRadius: 8,
     },
     packageTitle: { color: '#fff', fontSize: 16, fontWeight: '600' },
     packagePrice: { color: '#fff', fontSize: 18, fontWeight: 'bold' },
@@ -158,7 +162,7 @@ const styles = StyleSheet.create({
     },
     noPackagesText: { color: '#666', textAlign: 'center', lineHeight: 22 },
     restoreBtn: { alignItems: 'center', marginTop: 16, padding: 12 },
-    restoreText: { color: '#5B7FFF', fontSize: 14 },
+    restoreText: { color: '#4d73ba', fontSize: 14, fontWeight: '600' },
     overlay: {
         ...StyleSheet.absoluteFillObject,
         backgroundColor: 'rgba(0,0,0,0.4)',
