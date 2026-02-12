@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { View, Text, StyleSheet, Dimensions, ScrollView, Image, ActivityIndicator, TouchableOpacity, Alert, TextInput } from 'react-native';
+import { Image as ExpoImage } from 'expo-image';
 import MapView, { Polyline, Marker, PROVIDER_GOOGLE } from 'react-native-maps';
 import { supabase } from '@/lib/supabase';
 import { useNavigation, useFocusEffect } from '@react-navigation/native';
@@ -309,9 +310,23 @@ export default function MyProfileScreen() {
                 {/* Profile Info */}
                 <View style={styles.infoContainer}>
                     <Text style={styles.name}>{profile?.full_name || 'Johnny Bravo'}</Text>
-                    <Text style={styles.location}>
-                        <IconSymbol name="mappin.and.ellipse" size={14} color="#999" /> {profile?.route_start || 'Jeruzalem, Slovenia'} {profile?.route_end ? `→ ${profile.route_end}` : ''}
-                    </Text>
+                    <View style={styles.locationRow}>
+                        <IconSymbol name="mappin.and.ellipse" size={14} color="#999" />
+                        <Text style={styles.location}>
+                            {profile?.route_data && profile.route_data.length > 0 ? (
+                                profile.route_data.slice(0, 3).map((checkpoint: any, index: number) => (
+                                    <Text key={index}>
+                                        <Text style={index === 0 ? styles.currentLocation : styles.routeLocation}>
+                                            {checkpoint.name || checkpoint.city || 'Unknown'}
+                                        </Text>
+                                        {index < Math.min(profile.route_data.length - 1, 2) && <Text style={styles.routeLocation}> → </Text>}
+                                    </Text>
+                                ))
+                            ) : (
+                                <Text style={styles.routeLocation}>No route set</Text>
+                            )}
+                        </Text>
+                    </View>
 
                     <View style={styles.badges}>
                         {/* Verified Nomad Badge */}
@@ -343,6 +358,7 @@ export default function MyProfileScreen() {
                     {['Social', 'Groups', 'Builders'].map(tab => (
                         <TouchableOpacity key={tab} onPress={() => setActiveTab(tab)} style={[styles.tab, activeTab === tab && styles.activeTab]}>
                             <Text style={[styles.tabText, activeTab === tab && styles.activeTabText]}>{tab}</Text>
+                            {activeTab === tab && <View style={styles.activeLine} />}
                         </TouchableOpacity>
                     ))}
                 </View>
@@ -357,25 +373,53 @@ export default function MyProfileScreen() {
                     {activeTab === 'Groups' && (
                         userEvents.length > 0 ? (
                             userEvents.map(event => (
-                                <View key={event.id} style={styles.activityCard}>
-                                    <View style={styles.cardHeaderRow}>
-                                        <Text style={styles.activityTitle}>{event.title}</Text>
-                                        <TouchableOpacity
-                                            style={styles.actionButton}
-                                            onPress={() => event.isCustom ? handleDeleteEvent(event.id) : handleExitGroup(event.id)}
-                                        >
-                                            <Ionicons
-                                                name={event.isCustom ? "trash-outline" : "exit-outline"}
-                                                size={20}
-                                                color={event.isCustom ? "#FF3B30" : "#5B7FFF"}
-                                            />
-                                        </TouchableOpacity>
-                                    </View>
-                                    <Text style={styles.activityDesc} numberOfLines={2}>{event.description}</Text>
-                                    <View style={styles.activityFooter}>
-                                        <View style={styles.timeTag}>
-                                            <IconSymbol name="clock" size={14} color="#4d73ba" />
-                                            <Text style={styles.timeText}> {event.time}</Text>
+                                <View key={event.id} style={styles.eventCard}>
+                                    <ExpoImage source={require('@/assets/images/activity.jpg')} style={styles.eventImage} />
+                                    <View style={styles.eventContent}>
+                                        <View style={styles.titleRow}>
+                                            <Text style={styles.eventTitle}>{event.title}</Text>
+                                            {event.category && (
+                                                <View style={styles.categoryBadgeSmall}>
+                                                    <Text style={styles.categoryBadgeTextSmall}>{event.category}</Text>
+                                                </View>
+                                            )}
+                                        </View>
+                                        <Text style={styles.eventDesc} numberOfLines={2}>{event.description}</Text>
+
+                                        <View style={styles.infoRow}>
+                                            <Ionicons name="time-outline" size={16} color="#5B7FFF" />
+                                            <Text style={styles.infoText}>{event.time}</Text>
+                                        </View>
+                                        {event.location && (
+                                            <View style={styles.infoRow}>
+                                                <Ionicons name="location-outline" size={16} color="#5B7FFF" />
+                                                <Text style={styles.infoText}>{event.location}</Text>
+                                            </View>
+                                        )}
+
+                                        <View style={styles.actionButtons}>
+                                            <TouchableOpacity
+                                                style={[styles.actionBtn, styles.greyActionButton]}
+                                                onPress={() => event.isCustom ? handleDeleteEvent(event.id) : handleExitGroup(event.id)}
+                                            >
+                                                <Ionicons
+                                                    name={event.isCustom ? "trash-outline" : "exit-outline"}
+                                                    size={18}
+                                                    color="white"
+                                                />
+                                                <Text style={styles.actionBtnText}>{event.isCustom ? 'Delete' : 'Leave'}</Text>
+                                            </TouchableOpacity>
+                                            <TouchableOpacity
+                                                style={[styles.actionBtn, styles.chatActionButton]}
+                                                onPress={() => console.log('Chat with group', event.id)}
+                                            >
+                                                <Ionicons
+                                                    name="chatbubbles-outline"
+                                                    size={18}
+                                                    color="white"
+                                                />
+                                                <Text style={styles.actionBtnText}>Chat</Text>
+                                            </TouchableOpacity>
                                         </View>
                                     </View>
                                 </View>
@@ -619,12 +663,36 @@ const styles = StyleSheet.create({
     qrHint: { fontSize: 11, color: '#aaa', marginTop: 10 },
 
     tabsContainer: {
-        flexDirection: 'row', paddingHorizontal: 40, marginTop: 30, borderBottomWidth: 1, borderBottomColor: '#eee'
+        flexDirection: 'row',
+        paddingHorizontal: 40,
+        marginTop: 30,
+        borderBottomWidth: 1,
+        borderBottomColor: '#eee',
+        gap: 30,
     },
-    tab: { paddingVertical: 15, paddingHorizontal: 10, marginRight: 20 },
-    activeTab: { borderBottomWidth: 2, borderBottomColor: '#4d73ba' },
-    tabText: { fontSize: 16, color: '#999', fontWeight: '600' },
-    activeTabText: { color: '#333' },
+    tab: {
+        paddingVertical: 15,
+        paddingHorizontal: 10,
+        position: 'relative',
+    },
+    activeTab: {},
+    tabText: {
+        fontSize: 18,
+        color: '#999',
+        fontWeight: '600'
+    },
+    activeTabText: {
+        color: '#333' // Black text for active tab
+    },
+    activeLine: {
+        position: 'absolute',
+        bottom: 0,
+        left: 0,
+        right: 0,
+        height: 3,
+        backgroundColor: '#5B7FFF',
+        borderRadius: 2,
+    },
 
     content: { padding: 20 },
     sectionHeader: { flexDirection: 'row', alignItems: 'center', marginBottom: 20, opacity: 0.6 },
@@ -709,5 +777,119 @@ const styles = StyleSheet.create({
         borderWidth: 1,
         borderColor: '#4d73ba'
     },
-    findFriendBtnText: { color: '#4d73ba', fontWeight: 'bold' }
+    findFriendBtnText: { color: '#4d73ba', fontWeight: 'bold' },
+
+    // Route Display Styles
+    locationRow: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 5,
+    },
+    currentLocation: {
+        color: '#5B7FFF',
+        fontSize: 14,
+        fontWeight: '600',
+    },
+    routeLocation: {
+        color: '#999',
+        fontSize: 14,
+    },
+
+    // Event Card Styles (matching SocialFeedScreen)
+    eventCard: {
+        flexDirection: 'row',
+        backgroundColor: 'white',
+        borderRadius: 16,
+        padding: 12,
+        marginBottom: 20,
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.08,
+        shadowRadius: 8,
+        elevation: 3,
+        borderWidth: 1,
+        borderColor: '#f8f8f8',
+    },
+    eventImage: {
+        width: 110,
+        height: 150,
+        borderRadius: 12,
+        backgroundColor: '#ddd',
+    },
+    eventContent: {
+        flex: 1,
+        marginLeft: 15,
+        justifyContent: 'center',
+    },
+    titleRow: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        marginBottom: 8,
+    },
+    eventTitle: {
+        fontSize: 16,
+        fontWeight: 'bold',
+        color: '#1A1A1A',
+        flex: 1,
+    },
+    categoryBadgeSmall: {
+        backgroundColor: '#F0F0F8',
+        paddingHorizontal: 8,
+        paddingVertical: 2,
+        borderRadius: 8,
+        marginLeft: 8,
+    },
+    categoryBadgeTextSmall: {
+        fontSize: 10,
+        color: '#5B7FFF',
+        fontWeight: 'bold',
+    },
+    eventDesc: {
+        fontSize: 13,
+        color: '#8E8E93',
+        marginBottom: 12,
+        lineHeight: 20,
+    },
+    infoRow: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        marginBottom: 8,
+        gap: 6,
+    },
+    infoText: {
+        fontSize: 13,
+        color: '#666',
+        fontWeight: '500',
+    },
+    actionButtons: {
+        flexDirection: 'row',
+        marginTop: 12,
+        gap: 10,
+    },
+    actionBtn: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        paddingVertical: 10,
+        paddingHorizontal: 16,
+        borderRadius: 10,
+        gap: 6,
+    },
+    deleteActionButton: {
+        backgroundColor: '#FF3B30',
+    },
+    leaveActionButton: {
+        backgroundColor: '#5B7FFF',
+    },
+    greyActionButton: {
+        backgroundColor: '#8E8E93', // Grey for leave button
+    },
+    chatActionButton: {
+        backgroundColor: '#5B7FFF', // Violet for chat button
+    },
+    actionBtnText: {
+        color: 'white',
+        fontSize: 13,
+        fontWeight: '600',
+    },
 });
