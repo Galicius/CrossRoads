@@ -20,12 +20,22 @@ import { useNavigation } from '@react-navigation/native';
 const { width, height } = Dimensions.get('window');
 const SWIPE_THRESHOLD = width * 0.3;
 
+// Haversine distance in km
+function haversineKm(lat1: number, lon1: number, lat2: number, lon2: number): number {
+    const R = 6371;
+    const dLat = ((lat2 - lat1) * Math.PI) / 180;
+    const dLon = ((lon2 - lon1) * Math.PI) / 180;
+    const a = Math.sin(dLat / 2) ** 2 + Math.cos((lat1 * Math.PI) / 180) * Math.cos((lat2 * Math.PI) / 180) * Math.sin(dLon / 2) ** 2;
+    return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+}
+
 export default function DatingScreenV2() {
     const navigation = useNavigation<any>();
     const [profiles, setProfiles] = useState<any[]>([]);
     const [currentIndex, setCurrentIndex] = useState(0);
     const [loading, setLoading] = useState(true);
     const [currentUser, setCurrentUser] = useState<any>(null);
+    const [userRoute, setUserRoute] = useState<any[]>([]);
     const [swipesToday, setSwipesToday] = useState(0);
     const { isPro } = useRevenueCat();
 
@@ -44,6 +54,17 @@ export default function DatingScreenV2() {
             const { data: { user } } = await supabase.auth.getUser();
             if (!user) return;
             setCurrentUser(user);
+
+            // Fetch current user profile for route data
+            const { data: myProfile } = await supabase
+                .from('profiles')
+                .select('route_data')
+                .eq('id', user.id)
+                .single();
+
+            const myRoute = (myProfile?.route_data as any[]) || [];
+            setUserRoute(myRoute);
+            const referencePoint = myRoute.length > 0 ? myRoute[0] : null;
 
             // Get already-swiped IDs
             const { data: swipes } = await supabase
@@ -66,15 +87,27 @@ export default function DatingScreenV2() {
             const { data, error } = await query.limit(20);
             if (error) throw error;
 
-            const formatted = data?.map(p => ({
-                id: p.id,
-                name: p.full_name || p.username || 'Anonymous',
-                age: p.age || 25,
-                bio: p.bio || 'No bio yet.',
-                images: p.images && p.images.length > 0 ? p.images : ['https://via.placeholder.com/400x800'],
-                distance: 'Nearby',
-                route_data: p.route_data || [],
-            })) || [];
+            const formatted = data?.map(p => {
+                let distanceStr = 'Nearby';
+                const pRoute = p.route_data;
+                if (referencePoint && pRoute && Array.isArray(pRoute) && pRoute.length > 0) {
+                    const firstCp = pRoute[0] as any;
+                    if (firstCp && typeof firstCp.lat === 'number' && typeof firstCp.lng === 'number') {
+                        const dist = haversineKm(referencePoint.lat, referencePoint.lng, firstCp.lat, firstCp.lng);
+                        distanceStr = dist < 1 ? 'Nearby' : `${Math.round(dist)} km away`;
+                    }
+                }
+
+                return {
+                    id: p.id,
+                    name: p.full_name || p.username || 'Anonymous',
+                    age: p.age || 25,
+                    bio: p.bio || 'No bio yet.',
+                    images: p.images && p.images.length > 0 ? p.images : ['https://via.placeholder.com/400x800'],
+                    distance: distanceStr,
+                    route_data: p.route_data || [],
+                };
+            }) || [];
 
             setProfiles(formatted);
             setCurrentIndex(0);
@@ -288,15 +321,15 @@ const styles = StyleSheet.create({
     },
     cardWrapper: {
         position: 'absolute',
-        top: 50,
+        top: 35, // Moved slightly higher
         width: width * 0.90,
-        height: height * 0.74,
+        height: height * 0.82, // Increased to avoid clipping taller card
         alignItems: 'center',
         alignSelf: 'center',
     },
     buttonsContainer: {
         position: 'absolute',
-        bottom: 50,
+        bottom: 20,
         flexDirection: 'row',
         width: '100%',
         justifyContent: 'space-evenly',

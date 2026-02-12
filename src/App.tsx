@@ -9,6 +9,7 @@ import { Colors } from './constants/Colors';
 import { Navigation } from './navigation';
 import { EventsProvider } from './context/EventsContext';
 import { RevenueCatProvider } from './context/RevenueCatContext';
+import { SafeAreaProvider } from 'react-native-safe-area-context';
 
 SplashScreen.preventAutoHideAsync();
 
@@ -35,22 +36,24 @@ export function App() {
       };
 
   return (
-    <RevenueCatProvider>
-      <EventsProvider>
-        <Navigation
-          theme={theme}
-          linking={{
-            enabled: 'auto',
-            prefixes: [
-              // Change the scheme to match your app's scheme defined in app.json
-              'helloworld://',
-            ],
-          }}
-          onReady={() => {
-            SplashScreen.hideAsync();
-          }}
-        />
-      </EventsProvider >
-    </RevenueCatProvider>
+    <SafeAreaProvider>
+      <RevenueCatProvider>
+        <EventsProvider>
+          <Navigation
+            theme={theme}
+            linking={{
+              enabled: 'auto',
+              prefixes: [
+                // Change the scheme to match your app's scheme defined in app.json
+                'helloworld://',
+              ],
+            }}
+            onReady={() => {
+              SplashScreen.hideAsync();
+            }}
+          />
+        </EventsProvider >
+      </RevenueCatProvider>
+    </SafeAreaProvider>
   );
 }

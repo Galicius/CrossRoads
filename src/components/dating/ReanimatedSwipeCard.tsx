@@ -9,8 +9,8 @@ const { width, height } = Dimensions.get('window');
 // Reduce card width slightly for a stacked look, or full width?
 // User said "Full screen height cards". 
 // Check implementation_plan: "Full screen height cards."
-const CARD_WIDTH = width;
-const CARD_HEIGHT = height - 150; // Leave space for bottom tabs/buttons if needed
+const CARD_WIDTH = width * 0.9;
+const CARD_HEIGHT = height - 165; // Adjusted so buttons are halfway over image
 
 interface Profile {
     id: string;
@@ -54,7 +54,7 @@ export const ReanimatedSwipeCard = ({ profile, onPress }: ReanimatedSwipeCardPro
                     <Text style={styles.bio} numberOfLines={2}>{profile.bio}</Text>
                     {profile.distance && (
                         <View style={styles.locationRow}>
-                            <IconSymbol name="location.fill" size={14} color="#FFF" />
+                            <IconSymbol name="location.fill" size={14} color="#ffffffff" />
                             <Text style={styles.locationText}>{profile.distance}</Text>
                         </View>
                     )}
