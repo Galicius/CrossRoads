@@ -673,13 +673,6 @@ export default function SocialFeedScreen() {
                             </>
                         )}
                     </TouchableOpacity>
-                    <View style={styles.builderChips}>
-                        {item.expertise?.slice(0, 4).map((ex: string) => (
-                            <View key={ex} style={styles.builderChip}>
-                                <Text style={styles.builderChipText}>{ex}</Text>
-                            </View>
-                        ))}
-                    </View>
                     {item.distanceKm != null && item.distanceKm < Infinity && (
                         <View style={styles.onRouteBadge}>
                             <Ionicons name="navigate" size={12} color="white" />
@@ -733,84 +726,97 @@ export default function SocialFeedScreen() {
 
                 {/* Main Content Area */}
                 <View style={styles.contentContainer}>
-                    {/* Checkpoint Picker */}
-                    {userRoute.length > 0 && (
-                        <TouchableOpacity
-                            style={styles.checkpointBar}
-                            onPress={() => {
-                                if (!isPro) {
-                                    Alert.alert(
-                                        'Pro Feature',
-                                        'Upgrade to Pro to search from different checkpoints on your route!',
-                                        [
-                                            { text: 'Cancel', style: 'cancel' },
-                                            { text: 'Upgrade', onPress: () => navigation.navigate('Paywall') },
-                                        ]
-                                    );
-                                } else {
-                                    setCheckpointPickerVisible(true);
-                                }
-                            }}
-                        >
-                            <Ionicons name="location" size={16} color="#5B7FFF" />
-                            <Text style={styles.checkpointBarText}>
-                                Sorting from: {userRoute[Math.min(selectedCheckpointIndex, userRoute.length - 1)]?.name || `Checkpoint ${selectedCheckpointIndex + 1}`}
-                            </Text>
-                            {isPro ? (
-                                <Ionicons name="chevron-down" size={16} color="#5B7FFF" />
-                            ) : (
-                                <View style={styles.proBadge}>
-                                    <Text style={styles.proBadgeText}>PRO</Text>
-                                </View>
-                            )}
-                        </TouchableOpacity>
-                    )}
-                    {/* Search & Filter */}
-                    <View style={styles.searchRow}>
-                        <View style={styles.searchBar}>
-                            <Ionicons name="search-outline" size={20} color="#999" style={{ marginRight: 8 }} />
-                            <TextInput
-                                placeholder="Find groups and events..."
-                                placeholderTextColor="#999"
-                                style={styles.input}
-                                value={searchText}
-                                onChangeText={setSearchText}
-                            />
-                        </View>
-                        <TouchableOpacity style={styles.filterBtn} onPress={() => setFilterModalVisible(true)}>
-                            <Ionicons name="options-outline" size={24} color="#999" />
-                        </TouchableOpacity>
-                    </View>
-
-                    {/* Selected Filters / 'All' Display */}
-                    <View style={styles.tagsContainer}>
-                        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ paddingHorizontal: 20 }}>
-                            {selectedCategories.length === 0 ? (
-                                <View style={styles.tagBadge}>
-                                    <Ionicons name="layers-outline" size={16} color="white" style={{ marginRight: 6 }} />
-                                    <Text style={styles.tagText}>All</Text>
-                                </View>
-                            ) : (
-                                selectedCategories.map((cat, index) => {
-                                    const tagInfo = TAGS.find(t => t.name === cat);
-                                    return (
-                                        <View key={index} style={styles.tagBadge}>
-                                            <Ionicons name={(tagInfo?.icon || 'pricetag-outline') as any} size={16} color="white" style={{ marginRight: 6 }} />
-                                            <Text style={styles.tagText}>{cat}</Text>
-                                        </View>
-                                    );
-                                })
-                            )}
-                        </ScrollView>
-                    </View>
-
-                    {/* List */}
                     <FlatList
                         data={getFilteredData()}
                         renderItem={renderItem}
-                        keyExtractor={item => item.id}
+                        keyExtractor={(item) => item.id}
                         contentContainerStyle={styles.listContent}
                         showsVerticalScrollIndicator={false}
+                        ListHeaderComponent={
+                            <>
+                                {/* Checkpoint Picker */}
+                                {userRoute.length > 0 && (
+                                    <TouchableOpacity
+                                        style={styles.checkpointBar}
+                                        onPress={() => {
+                                            if (!isPro) {
+                                                Alert.alert(
+                                                    'Pro Feature',
+                                                    'Upgrade to Pro to search from different checkpoints on your route!',
+                                                    [
+                                                        { text: 'Cancel', style: 'cancel' },
+                                                        { text: 'Upgrade', onPress: () => navigation.navigate('Paywall') },
+                                                    ]
+                                                );
+                                            } else {
+                                                setCheckpointPickerVisible(true);
+                                            }
+                                        }}
+                                    >
+                                        <Ionicons name="location" size={16} color="#5B7FFF" />
+                                        <Text style={styles.checkpointBarText}>
+                                            Sorting from: {userRoute[Math.min(selectedCheckpointIndex, userRoute.length - 1)]?.name || `Checkpoint ${selectedCheckpointIndex + 1}`}
+                                        </Text>
+                                        {isPro ? (
+                                            <Ionicons name="chevron-down" size={16} color="#5B7FFF" />
+                                        ) : (
+                                            <View style={styles.proBadge}>
+                                                <Text style={styles.proBadgeText}>PRO</Text>
+                                            </View>
+                                        )}
+                                    </TouchableOpacity>
+                                )}
+                                {/* Search & Filter */}
+                                <View style={styles.searchRow}>
+                                    <View style={styles.searchBar}>
+                                        <Ionicons name="search-outline" size={20} color="#999" style={{ marginRight: 8 }} />
+                                        <TextInput
+                                            placeholder="Find groups and events..."
+                                            placeholderTextColor="#999"
+                                            style={styles.input}
+                                            value={searchText}
+                                            onChangeText={setSearchText}
+                                        />
+                                    </View>
+                                    <TouchableOpacity style={styles.filterBtn} onPress={() => setFilterModalVisible(true)}>
+                                        <Ionicons name="options-outline" size={24} color="#999" />
+                                    </TouchableOpacity>
+                                </View>
+
+                                {/* Selected Filters / 'All' Display */}
+                                <View style={styles.tagsContainer}>
+                                    <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ paddingHorizontal: 20 }}>
+                                        {selectedCategories.length === 0 ? (
+                                            <View style={styles.tagBadge}>
+                                                <Ionicons name="layers-outline" size={16} color="white" style={{ marginRight: 6 }} />
+                                                <Text style={styles.tagText}>All</Text>
+                                            </View>
+                                        ) : (
+                                            selectedCategories.map((cat, index) => {
+                                                const tagInfo = TAGS.find(t => t.name === cat);
+                                                return (
+                                                    <View key={index} style={styles.tagBadge}>
+                                                        <Ionicons name={(tagInfo?.icon || 'pricetag-outline') as any} size={16} color="white" style={{ marginRight: 6 }} />
+                                                        <Text style={styles.tagText}>{cat}</Text>
+                                                    </View>
+                                                );
+                                            })
+                                        )}
+                                    </ScrollView>
+                                </View>
+                            </>
+                        }
+                        ListEmptyComponent={
+                            loading ? (
+                                <ActivityIndicator size="large" color="#5B7FFF" style={{ marginTop: 50 }} />
+                            ) : (
+                                <View style={styles.emptyContainer}>
+                                    <ExpoImage source={require('@/assets/images/activity.jpg')} style={styles.emptyImage} />
+                                    <Text style={styles.emptyText}>No results found</Text>
+                                    <Text style={styles.emptySubtext}>Try adjusting filters or search terms</Text>
+                                </View>
+                            )
+                        }
                     />
                 </View>
             </View>
@@ -1139,6 +1145,27 @@ const styles = StyleSheet.create({
         backgroundColor: '#5B7FFF',
         borderRadius: 2,
     },
+    emptyContainer: {
+        alignItems: 'center',
+        justifyContent: 'center',
+        paddingVertical: 40,
+    },
+    emptyImage: {
+        width: 120,
+        height: 120,
+        marginBottom: 16,
+        opacity: 0.5,
+    },
+    emptyText: {
+        fontSize: 18,
+        fontWeight: 'bold',
+        color: '#666',
+        marginBottom: 8,
+    },
+    emptySubtext: {
+        fontSize: 14,
+        color: '#999',
+    },
     personCard: {
         backgroundColor: 'white',
         borderRadius: 16,
@@ -1164,9 +1191,9 @@ const styles = StyleSheet.create({
         marginBottom: 4,
     },
     personAvatar: {
-        width: 60,
-        height: 60,
-        borderRadius: 30,
+        width: 80,
+        height: 80,
+        borderRadius: 40,
         marginRight: 12,
         backgroundColor: '#ddd',
     },
