@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { View, Text, StyleSheet, FlatList, TouchableOpacity, TextInput, ScrollView, Modal, TouchableWithoutFeedback, Keyboard, Platform, Alert, ActivityIndicator } from 'react-native';
 import { Image } from 'expo-image';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -8,6 +8,7 @@ import { PlaceAutocomplete } from '@/components/ui/PlaceAutocomplete';
 import { supabase } from '@/lib/supabase';
 import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
 import DateTimePicker, { DateTimePickerEvent } from '@react-native-community/datetimepicker';
+import { useRevenueCat } from '@/context/RevenueCatContext';
 
 // Haversine distance in km
 function haversineKm(lat1: number, lon1: number, lat2: number, lon2: number): number {
@@ -36,6 +37,17 @@ const TAGS = [
     { name: 'Music', icon: 'musical-notes-outline' }
 ];
 
+const BUILDER_TAGS = [
+    { name: 'Plumbing', icon: 'water-outline' },
+    { name: 'Electrical', icon: 'flash-outline' },
+    { name: 'Woodwork', icon: 'construct-outline' },
+    { name: 'Solar', icon: 'sunny-outline' },
+    { name: 'Carpentry', icon: 'hammer-outline' },
+    { name: 'Metalwork', icon: 'settings-outline' },
+    { name: 'Mechanic', icon: 'car-outline' },
+    { name: 'Insulation', icon: 'home-outline' },
+];
+
 // Placeholder illustration for events where no specific image is provided
 const DEFAULT_ILLUSTRATION = 'https://images.unsplash.com/photo-1514525253440-b393452e8d26?ixlib=rb-1.2.1&auto=format&fit=crop&w=800&q=80';
 
@@ -50,10 +62,31 @@ export default function SocialFeedScreen() {
     const [loading, setLoading] = useState(false);
     const [messagingLoading, setMessagingLoading] = useState<string | null>(null);
     const [searchText, setSearchText] = useState('');
+    const [currentUserId, setCurrentUserId] = useState<string | null>(null);
+    const { isPro } = useRevenueCat();
 
-    // Filter State
+    // Per-tab filter state
     const [filterModalVisible, setFilterModalVisible] = useState(false);
-    const [selectedCategories, setSelectedCategories] = useState<string[]>([]);
+    const [eventCategories, setEventCategories] = useState<string[]>([]);
+    const [peopleCategories, setPeopleCategories] = useState<string[]>([]);
+    const [builderCategories, setBuilderCategories] = useState<string[]>([]);
+
+    // Checkpoint picker state
+    const [selectedCheckpointIndex, setSelectedCheckpointIndex] = useState(0);
+    const [checkpointPickerVisible, setCheckpointPickerVisible] = useState(false);
+
+    // Computed per-tab filter helpers
+    const selectedCategories = activeTab === 'Events' ? eventCategories : activeTab === 'People' ? peopleCategories : builderCategories;
+    const setSelectedCategories = activeTab === 'Events' ? setEventCategories : activeTab === 'People' ? setPeopleCategories : setBuilderCategories;
+
+    const [userRoute, setUserRoute] = useState<any[]>([]);
+
+    // Reference point from user route for distance calculations
+    const referencePoint = useMemo(() => {
+        if (userRoute.length === 0) return null;
+        const idx = Math.min(selectedCheckpointIndex, userRoute.length - 1);
+        return userRoute[idx];
+    }, [userRoute, selectedCheckpointIndex]);
 
     // Add Event State
     const [addEventModalVisible, setAddEventModalVisible] = useState(false);
@@ -66,7 +99,6 @@ export default function SocialFeedScreen() {
     const [newEventLocation, setNewEventLocation] = useState('');
     const [newEventLocationCoords, setNewEventLocationCoords] = useState<{ lat: number; lng: number } | null>(null);
     const [newEventCategory, setNewEventCategory] = useState('');
-    const [userRoute, setUserRoute] = useState<any[]>([]);
 
     // Load user route on mount for proximity sorting
     useEffect(() => {
@@ -86,7 +118,11 @@ export default function SocialFeedScreen() {
             setActiveTab(route.params.activeTab);
         }
         if (route.params?.category) {
-            setSelectedCategories([route.params.category]);
+            // Scope category param to the target tab only
+            const tab = route.params?.activeTab || 'Events';
+            if (tab === 'Events') setEventCategories([route.params.category]);
+            else if (tab === 'People') setPeopleCategories([route.params.category]);
+            else if (tab === 'Builders') setBuilderCategories([route.params.category]);
         }
     }, [route.params]);
 
@@ -94,24 +130,49 @@ export default function SocialFeedScreen() {
         // Fetch other non-event data if needed
         if (activeTab === 'People') {
             fetchPeopleActivities();
-        } else if (activeTab === 'Builders' && builderData.length === 0) {
-            setBuilderData([
-                { id: '1', name: 'TechHub', location: 'Downtown', description: 'Co-working space for founders.' }
-            ]);
+        } else if (activeTab === 'Builders') {
+            fetchBuilders();
         }
     }, [activeTab]);
 
     async function fetchPeopleActivities() {
         try {
             setLoading(true);
+            const { data: { user } } = await supabase.auth.getUser();
+            if (user) setCurrentUserId(user.id);
+
             const { data, error } = await supabase
                 .from('daily_activities')
                 .select('*, profiles(*)');
 
             if (error) throw error;
-            setPeopleData(data || []);
+            // Filter out the current user
+            const filtered = (data || []).filter(item => item.user_id !== user?.id);
+            setPeopleData(filtered);
         } catch (error) {
             console.error('Error fetching people activities:', error);
+        } finally {
+            setLoading(false);
+        }
+    }
+
+    async function fetchBuilders() {
+        try {
+            setLoading(true);
+            const { data: { user } } = await supabase.auth.getUser();
+            if (user) setCurrentUserId(user.id);
+
+            const { data, error } = await supabase
+                .from('builder_profiles')
+                .select('*, profiles!builder_profiles_id_fkey(full_name, avatar_url, username, route_data)')
+                .eq('is_active', true);
+
+            if (error) throw error;
+            // Filter out the current user
+            const filtered = (data || []).filter(item => item.id !== user?.id);
+            setBuilderData(filtered);
+        } catch (error) {
+            console.error('Error fetching builders:', error);
         } finally {
             setLoading(false);
         }
@@ -131,53 +192,71 @@ export default function SocialFeedScreen() {
                 return;
             }
 
-            // 1. Check if a social chat already exists
-            const { data: existingChats, error: chatError } = await supabase
-                .from('chat_participants')
-                .select('chat_id, chats!inner(type)')
-                .eq('user_id', user.id)
-                .eq('chats.type', 'social');
-
-            if (chatError) throw chatError;
-
-            let chatId = null;
-            if (existingChats && existingChats.length > 0) {
-                // Check if targetUser is also in any of these chats
-                const chatIds = existingChats.map(c => c.chat_id);
-                const { data: sharedParticipants } = await supabase
-                    .from('chat_participants')
-                    .select('chat_id')
-                    .in('chat_id', chatIds)
-                    .eq('user_id', targetUser.id)
-                    .single();
-
-                if (sharedParticipants) {
-                    chatId = sharedParticipants.chat_id;
-                }
-            }
-
-            // 2. If not, create a new chat
-            if (!chatId) {
-                const { data: newChat, error: createError } = await supabase
-                    .from('chats')
-                    .insert({ type: 'social', name: 'Direct Message' })
-                    .select()
-                    .single();
-
-                if (createError) throw createError;
-                chatId = newChat.id;
-
-                // Add participants
-                await supabase.from('chat_participants').insert([
-                    { chat_id: chatId, user_id: user.id },
-                    { chat_id: chatId, user_id: targetUser.id }
-                ]);
-            }
-
-            navigation.navigate('ChatDetail', {
-                chatId: chatId,
-                otherUserName: targetUser.full_name || targetUser.username || 'User'
+            // Use RPC to create or find existing social chat
+            const { data: chatId, error } = await supabase.rpc('create_social_chat', {
+                p_user_id: user.id,
+                p_target_user_id: targetUser.id,
             });
+
+            if (error) throw error;
+
+            if (chatId) {
+                // Navigate to Chat tab with Social sub-tab, then to the chat
+                navigation.navigate('HomeTabs', {
+                    screen: 'Chat',
+                    params: { initialTab: 'social' }
+                });
+                // Small delay to let the tab switch, then navigate to chat detail
+                setTimeout(() => {
+                    navigation.navigate('ChatDetail', {
+                        chatId: chatId,
+                        otherUserName: targetUser.full_name || targetUser.username || 'User'
+                    });
+                }, 100);
+            }
+
+        } catch (error: any) {
+            Alert.alert('Error', error.message);
+        } finally {
+            setMessagingLoading(null);
+        }
+    };
+
+    const handleStartBuilderChat = async (builder: any) => {
+        try {
+            setMessagingLoading(builder.id);
+            const { data: { user } } = await supabase.auth.getUser();
+            if (!user) {
+                Alert.alert('Error', 'Please log in to message.');
+                return;
+            }
+
+            if (user.id === builder.id) {
+                Alert.alert('Error', "You can't message yourself!");
+                return;
+            }
+
+            // Use existing RPC to create or find builder chat
+            const { data: chatId, error } = await supabase.rpc('create_builder_chat', {
+                p_builder_id: builder.id,
+                p_user_id: user.id,
+            });
+
+            if (error) throw error;
+
+            if (chatId) {
+                // Navigate to Chat tab with Builders sub-tab, then to the chat
+                navigation.navigate('HomeTabs', {
+                    screen: 'Chat',
+                    params: { initialTab: 'builder' }
+                });
+                setTimeout(() => {
+                    navigation.navigate('ChatDetail', {
+                        chatId: chatId,
+                        otherUserName: builder.business_name || builder.profiles?.full_name || 'Builder'
+                    });
+                }, 100);
+            }
 
         } catch (error: any) {
             Alert.alert('Error', error.message);
@@ -201,28 +280,54 @@ export default function SocialFeedScreen() {
         if (searchText) {
             const lower = searchText.toLowerCase();
             currentData = currentData.filter(item =>
-                (item.title || item.name || '').toLowerCase().includes(lower) ||
-                (item.description || item.bio || '').toLowerCase().includes(lower)
+                (item.title || item.name || item.business_name || '').toLowerCase().includes(lower) ||
+                (item.description || item.bio || item.content || '').toLowerCase().includes(lower) ||
+                (item.profiles?.full_name || '').toLowerCase().includes(lower)
             );
         }
 
-        // Filter by Category
+        // Filter by Category (uses per-tab state)
         if (selectedCategories.length > 0) {
             if (activeTab === 'Events') {
                 currentData = currentData.filter(item => selectedCategories.includes(item.category));
             } else if (activeTab === 'People') {
                 currentData = currentData.filter(item => selectedCategories.includes(item.category));
+            } else if (activeTab === 'Builders') {
+                currentData = currentData.filter(item =>
+                    item.expertise?.some((ex: string) => selectedCategories.includes(ex))
+                );
             }
         }
 
-        // Sort events by proximity to user route
-        if (activeTab === 'Events' && userRoute.length > 0) {
-            currentData = currentData.map((ev: Event) => {
-                if (ev.latitude != null && ev.longitude != null) {
-                    return { ...ev, distanceKm: minDistanceToRoute(ev.latitude, ev.longitude, userRoute) };
-                }
-                return { ...ev, distanceKm: Infinity };
-            });
+        // Sort ALL tabs by proximity
+        if (referencePoint) {
+            if (activeTab === 'Events') {
+                currentData = currentData.map((ev: Event) => {
+                    if (ev.latitude != null && ev.longitude != null) {
+                        return { ...ev, distanceKm: haversineKm(referencePoint.lat, referencePoint.lng, ev.latitude, ev.longitude) };
+                    }
+                    return { ...ev, distanceKm: Infinity };
+                });
+            } else if (activeTab === 'People') {
+                currentData = currentData.map((item: any) => {
+                    const profile = item.profiles;
+                    const pRoute = profile?.route_data;
+                    if (pRoute && Array.isArray(pRoute) && pRoute.length > 0) {
+                        const firstCp = pRoute[0];
+                        return { ...item, distanceKm: haversineKm(referencePoint.lat, referencePoint.lng, firstCp.lat, firstCp.lng) };
+                    }
+                    return { ...item, distanceKm: Infinity };
+                });
+            } else if (activeTab === 'Builders') {
+                currentData = currentData.map((item: any) => {
+                    const pRoute = item.profiles?.route_data;
+                    if (pRoute && Array.isArray(pRoute) && pRoute.length > 0) {
+                        const firstCp = pRoute[0];
+                        return { ...item, distanceKm: haversineKm(referencePoint.lat, referencePoint.lng, firstCp.lat, firstCp.lng) };
+                    }
+                    return { ...item, distanceKm: Infinity };
+                });
+            }
             currentData.sort((a: any, b: any) => (a.distanceKm ?? Infinity) - (b.distanceKm ?? Infinity));
         }
 
@@ -393,25 +498,61 @@ export default function SocialFeedScreen() {
                         </TouchableOpacity>
                     </View>
 
-                    <Text style={styles.activityContent}>"{activity.content}"</Text>
+                    {item.distanceKm != null && item.distanceKm < Infinity && (
+                        <View style={styles.onRouteBadge}>
+                            <Ionicons name="navigate" size={12} color="white" />
+                            <Text style={styles.onRouteBadgeText}>
+                                {item.distanceKm < 1 ? 'Nearby' : `${Math.round(item.distanceKm)} km away`}
+                            </Text>
+                        </View>
+                    )}
 
-                    <TouchableOpacity
-                        style={styles.personMessageBtn}
-                        onPress={() => handleStartChat(profile)}
-                        disabled={messagingLoading === profile?.id}
-                    >
-                        <Text style={styles.personMessageBtnText}>Message</Text>
-                    </TouchableOpacity>
+                    <Text style={styles.activityContent}>"{activity.content}"</Text>
                 </View>
             );
         }
 
         if (activeTab === 'Builders') {
+            const builderProfile = item.profiles;
             return (
-                <View style={styles.simpleCard}>
-                    <Text style={styles.cardTitle}>{item.name}</Text>
-                    <Text style={styles.cardSubtitle}>{item.expertise?.join(', ')}</Text>
-                    <Text style={styles.cardDesc}>{item.bio}</Text>
+                <View style={styles.personCard}>
+                    <View style={styles.personHeader}>
+                        <Image
+                            source={{ uri: builderProfile?.avatar_url || 'https://images.unsplash.com/photo-1570295999919-56ceb5ecca61?ixlib=rb-1.2.1&auto=format&fit=crop&w=500&q=80' }}
+                            style={styles.personAvatar}
+                        />
+                        <View style={styles.personInfo}>
+                            <Text style={styles.personName}>{item.business_name || builderProfile?.full_name || 'Builder'}</Text>
+                            <Text style={styles.builderRate}>${item.hourly_rate}/hr</Text>
+                        </View>
+                        <TouchableOpacity
+                            style={styles.messageIconBtn}
+                            onPress={() => handleStartBuilderChat(item)}
+                            disabled={messagingLoading === item.id}
+                        >
+                            {messagingLoading === item.id ? (
+                                <ActivityIndicator size="small" color="#4d73ba" />
+                            ) : (
+                                <Ionicons name="chatbubble-ellipses" size={24} color="#4d73ba" />
+                            )}
+                        </TouchableOpacity>
+                    </View>
+                    <View style={styles.builderChips}>
+                        {item.expertise?.slice(0, 4).map((ex: string) => (
+                            <View key={ex} style={styles.builderChip}>
+                                <Text style={styles.builderChipText}>{ex}</Text>
+                            </View>
+                        ))}
+                    </View>
+                    {item.distanceKm != null && item.distanceKm < Infinity && (
+                        <View style={styles.onRouteBadge}>
+                            <Ionicons name="navigate" size={12} color="white" />
+                            <Text style={styles.onRouteBadgeText}>
+                                {item.distanceKm < 1 ? 'Nearby' : `${Math.round(item.distanceKm)} km away`}
+                            </Text>
+                        </View>
+                    )}
+                    {item.bio ? <Text style={styles.activityContent} numberOfLines={2}>{item.bio}</Text> : null}
                 </View>
             );
         }
@@ -441,7 +582,10 @@ export default function SocialFeedScreen() {
                             <TouchableOpacity
                                 key={tab}
                                 style={[styles.tab, activeTab === tab && styles.activeTab]}
-                                onPress={() => setActiveTab(tab)}
+                                onPress={() => {
+                                    setActiveTab(tab);
+                                    setSearchText('');
+                                }}
                             >
                                 <Text style={[styles.tabText, activeTab === tab && styles.activeTabText]}>
                                     {tab}
@@ -454,6 +598,38 @@ export default function SocialFeedScreen() {
 
                 {/* Main Content Area */}
                 <View style={styles.contentContainer}>
+                    {/* Checkpoint Picker */}
+                    {userRoute.length > 0 && (
+                        <TouchableOpacity
+                            style={styles.checkpointBar}
+                            onPress={() => {
+                                if (!isPro) {
+                                    Alert.alert(
+                                        'Pro Feature',
+                                        'Upgrade to Pro to search from different checkpoints on your route!',
+                                        [
+                                            { text: 'Cancel', style: 'cancel' },
+                                            { text: 'Upgrade', onPress: () => navigation.navigate('Paywall') },
+                                        ]
+                                    );
+                                } else {
+                                    setCheckpointPickerVisible(true);
+                                }
+                            }}
+                        >
+                            <Ionicons name="location" size={16} color="#5B7FFF" />
+                            <Text style={styles.checkpointBarText}>
+                                Sorting from: {userRoute[Math.min(selectedCheckpointIndex, userRoute.length - 1)]?.name || `Checkpoint ${selectedCheckpointIndex + 1}`}
+                            </Text>
+                            {isPro ? (
+                                <Ionicons name="chevron-down" size={16} color="#5B7FFF" />
+                            ) : (
+                                <View style={styles.proBadge}>
+                                    <Text style={styles.proBadgeText}>PRO</Text>
+                                </View>
+                            )}
+                        </TouchableOpacity>
+                    )}
                     {/* Search & Filter */}
                     <View style={styles.searchRow}>
                         <View style={styles.searchBar}>
@@ -507,10 +683,18 @@ export default function SocialFeedScreen() {
             {/* Floating Action Button */}
             {activeTab === 'Events' && (
                 <TouchableOpacity
-                    style={[styles.fab, { bottom: insets.bottom + 80 }]} // Adjusted to be above navbar
+                    style={[styles.fab, { bottom: insets.bottom + 80 }]}
                     onPress={() => setAddEventModalVisible(true)}
                 >
                     <Ionicons name="add" size={32} color="white" />
+                </TouchableOpacity>
+            )}
+            {activeTab === 'Builders' && (
+                <TouchableOpacity
+                    style={[styles.fab, { bottom: insets.bottom + 80 }]}
+                    onPress={() => navigation.navigate('BuilderRegistration' as any)}
+                >
+                    <Ionicons name="construct" size={28} color="white" />
                 </TouchableOpacity>
             )}
 
@@ -527,7 +711,7 @@ export default function SocialFeedScreen() {
                             <View style={styles.modalContent}>
                                 <Text style={styles.modalTitle}>Filter Categories</Text>
                                 <View style={styles.categoriesGrid}>
-                                    {TAGS.map(tag => (
+                                    {(activeTab === 'Builders' ? BUILDER_TAGS : TAGS).map(tag => (
                                         <TouchableOpacity
                                             key={tag.name}
                                             style={[
@@ -696,6 +880,51 @@ export default function SocialFeedScreen() {
                         </View>
                     </View>
                 </View>
+            </Modal>
+
+            {/* Checkpoint Picker Modal */}
+            <Modal
+                visible={checkpointPickerVisible}
+                animationType="slide"
+                transparent={true}
+                onRequestClose={() => setCheckpointPickerVisible(false)}
+            >
+                <TouchableWithoutFeedback onPress={() => setCheckpointPickerVisible(false)}>
+                    <View style={styles.modalOverlay}>
+                        <TouchableWithoutFeedback>
+                            <View style={styles.modalContent}>
+                                <Text style={styles.modalTitle}>Search From Checkpoint</Text>
+                                <ScrollView style={{ maxHeight: 300 }}>
+                                    {userRoute.map((cp: any, idx: number) => (
+                                        <TouchableOpacity
+                                            key={idx}
+                                            style={[
+                                                styles.checkpointOption,
+                                                selectedCheckpointIndex === idx && styles.checkpointOptionSelected
+                                            ]}
+                                            onPress={() => {
+                                                setSelectedCheckpointIndex(idx);
+                                                setCheckpointPickerVisible(false);
+                                            }}
+                                        >
+                                            <Ionicons
+                                                name={selectedCheckpointIndex === idx ? 'radio-button-on' : 'radio-button-off'}
+                                                size={20}
+                                                color={selectedCheckpointIndex === idx ? '#5B7FFF' : '#999'}
+                                            />
+                                            <Text style={[
+                                                styles.checkpointOptionText,
+                                                selectedCheckpointIndex === idx && styles.checkpointOptionTextSelected
+                                            ]}>
+                                                {cp.name || `Checkpoint ${idx + 1}`}
+                                            </Text>
+                                        </TouchableOpacity>
+                                    ))}
+                                </ScrollView>
+                            </View>
+                        </TouchableWithoutFeedback>
+                    </View>
+                </TouchableWithoutFeedback>
             </Modal>
         </View>
     );
@@ -965,6 +1194,29 @@ const styles = StyleSheet.create({
     cardTitle: { fontSize: 18, fontWeight: 'bold' },
     cardSubtitle: { color: '#666', marginVertical: 4 },
     cardDesc: { color: '#444' },
+    builderRate: {
+        fontSize: 14,
+        color: '#34C759',
+        fontWeight: '600',
+        marginTop: 2,
+    },
+    builderChips: {
+        flexDirection: 'row',
+        flexWrap: 'wrap',
+        marginBottom: 10,
+        gap: 6,
+    },
+    builderChip: {
+        backgroundColor: '#F0F4FF',
+        paddingHorizontal: 10,
+        paddingVertical: 4,
+        borderRadius: 12,
+    },
+    builderChipText: {
+        fontSize: 12,
+        color: '#5B7FFF',
+        fontWeight: '600',
+    },
     fab: {
         position: 'absolute',
         right: 20,
@@ -1168,5 +1420,55 @@ const styles = StyleSheet.create({
         fontSize: 13,
         fontWeight: '600',
         flex: 1,
+    },
+    checkpointBar: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        backgroundColor: '#F0F4FF',
+        marginHorizontal: 20,
+        marginBottom: 15,
+        paddingHorizontal: 14,
+        paddingVertical: 10,
+        borderRadius: 12,
+        gap: 8,
+        borderWidth: 1,
+        borderColor: '#D6E0FF',
+    },
+    checkpointBarText: {
+        flex: 1,
+        fontSize: 13,
+        color: '#333',
+        fontWeight: '500',
+    },
+    proBadge: {
+        backgroundColor: '#FFD700',
+        paddingHorizontal: 8,
+        paddingVertical: 2,
+        borderRadius: 8,
+    },
+    proBadgeText: {
+        fontSize: 10,
+        fontWeight: 'bold',
+        color: '#333',
+    },
+    checkpointOption: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        paddingVertical: 12,
+        paddingHorizontal: 16,
+        gap: 12,
+        borderBottomWidth: 1,
+        borderBottomColor: '#F0F0F0',
+    },
+    checkpointOptionSelected: {
+        backgroundColor: '#F0F4FF',
+    },
+    checkpointOptionText: {
+        fontSize: 15,
+        color: '#333',
+    },
+    checkpointOptionTextSelected: {
+        color: '#5B7FFF',
+        fontWeight: '600',
     },
 }); 

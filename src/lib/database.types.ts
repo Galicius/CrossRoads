@@ -574,6 +574,10 @@ export type Database = {
                 Args: { p_builder_id: string; p_user_id: string }
                 Returns: string
             }
+            create_social_chat: {
+                Args: { p_user_id: string; p_target_user_id: string }
+                Returns: string
+            }
             get_nearby_builders: {
                 Args: { lat: number; long: number }
                 Returns: {

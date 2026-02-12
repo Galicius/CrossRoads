@@ -3,6 +3,8 @@ import { View, Text, StyleSheet, TextInput, TouchableOpacity, ScrollView, Alert 
 import { useNavigation } from '@react-navigation/native';
 import { supabase } from '../../lib/supabase';
 import { IconSymbol } from '@/components/ui/IconSymbol';
+import { Toast } from '@/components/ui/Toast';
+
 
 const CATEGORIES = [
     'Solar / Electrical',
@@ -20,13 +22,19 @@ export default function CreateRequestScreen() {
     const [category, setCategory] = useState(CATEGORIES[0]);
     const [description, setDescription] = useState('');
     const [loading, setLoading] = useState(false);
+    const [toast, setToast] = useState<{ visible: boolean; message: string; type: 'success' | 'error' }>({
+        visible: false,
+        message: '',
+        type: 'success'
+    });
+
 
     // Hardcoded location for now (could get from Expo Location)
     const userLocation = { latitude: 46.0569, longitude: 14.5058 }; // Ljubljana
 
     const submitRequest = async () => {
         if (!description.trim()) {
-            Alert.alert('Error', 'Please describe your problem.');
+            setToast({ visible: true, message: 'Please describe your problem.', type: 'error' });
             return;
         }
 
@@ -45,11 +53,12 @@ export default function CreateRequestScreen() {
 
             if (error) throw error;
 
-            Alert.alert('Success', 'Your help request has been posted!', [
-                { text: 'OK', onPress: () => navigation.goBack() }
-            ]);
+            setToast({ visible: true, message: 'Your help request has been posted!', type: 'success' });
+            setTimeout(() => {
+                navigation.goBack();
+            }, 1000);
         } catch (error: any) {
-            Alert.alert('Error', error.message);
+            setToast({ visible: true, message: error.message, type: 'error' });
         } finally {
             setLoading(false);
         }
@@ -87,6 +96,13 @@ export default function CreateRequestScreen() {
             >
                 <Text style={styles.btnText}>{loading ? 'Posting...' : 'Post Request'}</Text>
             </TouchableOpacity>
+
+            <Toast
+                visible={toast.visible}
+                message={toast.message}
+                type={toast.type}
+                onHide={() => setToast(prev => ({ ...prev, visible: false }))}
+            />
         </ScrollView>
     );
 }

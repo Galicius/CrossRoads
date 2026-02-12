@@ -5,6 +5,8 @@ import { CommonActions, useNavigation } from '@react-navigation/native';
 import * as ImagePicker from 'expo-image-picker';
 import { supabase } from '@/lib/supabase';
 import { IconSymbol } from '@/components/ui/IconSymbol';
+import { Toast } from '@/components/ui/Toast';
+
 
 export default function EditProfileScreen() {
     const navigation = useNavigation<any>();
@@ -20,6 +22,12 @@ export default function EditProfileScreen() {
     const [images, setImages] = useState<string[]>([]);
 
     const [routeData, setRouteData] = useState<any[]>([]);
+    const [toast, setToast] = useState<{ visible: boolean; message: string; type: 'success' | 'error' }>({
+        visible: false,
+        message: '',
+        type: 'success'
+    });
+
 
     useEffect(() => {
         fetchProfile();
@@ -151,10 +159,14 @@ export default function EditProfileScreen() {
 
             if (error) throw error;
 
-            Alert.alert("Success", "Profile updated!");
-            navigation.goBack();
+            setToast({ visible: true, message: "Profile updated successfully!", type: 'success' });
+            setTimeout(() => {
+                navigation.goBack();
+            }, 1000);
+
         } catch (error: any) {
-            Alert.alert("Error", error.message);
+            console.error("Save error:", error);
+            setToast({ visible: true, message: error.message, type: 'error' });
         } finally {
             setSaving(false);
         }
@@ -267,7 +279,15 @@ export default function EditProfileScreen() {
 
                 <View style={{ height: 50 }} />
             </ScrollView>
+
+            <Toast
+                visible={toast.visible}
+                message={toast.message}
+                type={toast.type}
+                onHide={() => setToast(prev => ({ ...prev, visible: false }))}
+            />
         </SafeAreaView>
+
     );
 }
 
