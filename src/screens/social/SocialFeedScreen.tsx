@@ -543,11 +543,17 @@ export default function SocialFeedScreen() {
                             )}
 
                             {/* Join/Leave Button */}
+                            {/* Join/Leave Button */}
                             <TouchableOpacity
-                                style={[styles.joinButton, eventItem.joined && styles.joinedButton]}
+                                style={[styles.actionBtn, eventItem.joined ? styles.joinedActionButton : styles.joinActionButton, { marginLeft: 'auto' }]}
                                 onPress={() => eventItem.joined ? leaveEvent(eventItem.id) : joinEvent(eventItem.id)}
                             >
-                                <Text style={[styles.joinButtonText, eventItem.joined && styles.joinedButtonText]}>
+                                {eventItem.joined ? (
+                                    <Ionicons name="checkmark-circle-outline" size={18} color="#888" />
+                                ) : (
+                                    <Ionicons name="add-circle-outline" size={18} color="white" />
+                                )}
+                                <Text style={[styles.actionBtnText, eventItem.joined ? styles.joinedButtonText : { color: 'white' }]}>
                                     {eventItem.joined ? 'Going' : 'Join'}
                                 </Text>
                             </TouchableOpacity>
@@ -686,7 +692,7 @@ export default function SocialFeedScreen() {
                                     setSearchText('');
                                 }}
                             >
-                                <Text style={[styles.tabText, activeTab === tab && styles.activeTabText]}>
+                                <Text style={[styles.tabText, activeTab === tab ? styles.activeTabText : styles.inactiveTabText]}>
                                     {tab}
                                 </Text>
                                 {activeTab === tab && <View style={styles.activeLine} />}
@@ -782,7 +788,7 @@ export default function SocialFeedScreen() {
             {/* Floating Action Button */}
             {activeTab === 'Events' && (
                 <TouchableOpacity
-                    style={[styles.fab, { bottom: insets.bottom + 80 }]}
+                    style={[styles.fab, { bottom: 20 }]}
                     onPress={handleOpenCreate}
                 >
                     <Ionicons name="add" size={32} color="white" />
@@ -790,7 +796,7 @@ export default function SocialFeedScreen() {
             )}
             {activeTab === 'Builders' && (
                 <TouchableOpacity
-                    style={[styles.fab, { bottom: insets.bottom + 80 }]}
+                    style={[styles.fab, { bottom: 20 }]}
                     onPress={() => navigation.navigate('BuilderRegistration' as any)}
                 >
                     <Ionicons name="construct" size={28} color="white" />
@@ -1084,7 +1090,7 @@ const styles = StyleSheet.create({
         color: 'white',
     },
     activeTabText: {
-        color: '#1A1A1A',
+        color: 'white',
     },
     activeLine: {
         position: 'absolute',
@@ -1092,7 +1098,7 @@ const styles = StyleSheet.create({
         left: 0,
         right: 0,
         height: 4,
-        backgroundColor: '#1A1A1A',
+        backgroundColor: '#5B7FFF',
         borderRadius: 2,
     },
     personCard: {
@@ -1203,6 +1209,11 @@ const styles = StyleSheet.create({
         fontWeight: '600',
         fontSize: 13,
     },
+    inactiveTabText: {
+        color: '#d3d3d3ff',
+        fontWeight: '600',
+        fontSize: 14,
+    },
     listContent: {
         paddingHorizontal: 20,
         paddingBottom: 100,
@@ -1212,7 +1223,7 @@ const styles = StyleSheet.create({
         backgroundColor: 'white',
         borderRadius: 16,
         padding: 12,
-        marginBottom: 16,
+        marginBottom: 20,
         shadowColor: '#000',
         shadowOffset: { width: 0, height: 2 },
         shadowOpacity: 0.08,
@@ -1222,8 +1233,8 @@ const styles = StyleSheet.create({
         borderColor: '#f8f8f8',
     },
     eventImage: {
-        width: 100,
-        height: 100,
+        width: 110,
+        height: 150,
         borderRadius: 12,
         backgroundColor: '#ddd',
     },
@@ -1236,7 +1247,7 @@ const styles = StyleSheet.create({
         flexDirection: 'row',
         justifyContent: 'space-between',
         alignItems: 'center',
-        marginBottom: 4,
+        marginBottom: 8,
     },
     eventTitle: {
         fontSize: 16,
@@ -1259,13 +1270,13 @@ const styles = StyleSheet.create({
     eventDesc: {
         fontSize: 13,
         color: '#8E8E93',
-        marginBottom: 10,
-        lineHeight: 18,
+        marginBottom: 12,
+        lineHeight: 20,
     },
     infoRow: {
         flexDirection: 'row',
         alignItems: 'center',
-        marginBottom: 4,
+        marginBottom: 8,
         gap: 6,
     },
     infoText: {
@@ -1273,13 +1284,15 @@ const styles = StyleSheet.create({
         color: '#666',
         fontWeight: '500',
     },
-    joinButton: {
+    joinActionButton: {
         backgroundColor: '#5B7FFF',
-        paddingVertical: 8,
-        borderRadius: 8,
-        marginTop: 8,
-        alignItems: 'center',
-        flex: 1,
+        marginTop: 0,
+        paddingHorizontal: 20,
+    },
+    joinedActionButton: {
+        backgroundColor: '#F0F0F0',
+        marginTop: 0,
+        paddingHorizontal: 20,
     },
     joinedButton: {
         backgroundColor: '#E0E0E0',
@@ -1333,7 +1346,7 @@ const styles = StyleSheet.create({
     fab: {
         position: 'absolute',
         right: 20,
-        backgroundColor: '#4d73ba',
+        backgroundColor: '#5B7FFF',
         width: 56,
         height: 56,
         borderRadius: 28,
@@ -1436,14 +1449,16 @@ const styles = StyleSheet.create({
     },
     modalButton: {
         backgroundColor: '#5B7FFF',
-        paddingVertical: 14,
-        borderRadius: 12,
+        paddingVertical: 10,
+        paddingHorizontal: 20,
+        borderRadius: 20,
         alignItems: 'center',
+        flex: 1,
     },
     modalButtonText: {
         color: 'white',
-        fontWeight: 'bold',
-        fontSize: 16,
+        fontWeight: '600',
+        fontSize: 14,
     },
     inputLabel: {
         fontSize: 14,
@@ -1496,10 +1511,16 @@ const styles = StyleSheet.create({
     },
     cancelButton: {
         backgroundColor: '#F0F0F0',
+        paddingVertical: 10,
+        paddingHorizontal: 20,
+        borderRadius: 20,
+        alignItems: 'center',
         flex: 1,
     },
     cancelButtonText: {
         color: '#666',
+        fontWeight: '600',
+        fontSize: 14,
     },
     onRouteBadge: {
         flexDirection: 'row',
