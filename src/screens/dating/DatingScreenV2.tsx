@@ -2,6 +2,8 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { View, StyleSheet, Dimensions, Text, TouchableOpacity, ActivityIndicator, Alert } from 'react-native';
 import { GestureDetector, Gesture, GestureHandlerRootView } from 'react-native-gesture-handler';
+import { Image as ExpoImage } from 'expo-image';
+import Ionicons from '@expo/vector-icons/Ionicons';
 import Animated, {
     useSharedValue,
     useAnimatedStyle,
@@ -401,5 +403,50 @@ const styles = StyleSheet.create({
     },
     likeButton: {
         // color handled by icon
+    },
+    backgroundImage: {
+        position: 'absolute',
+        width: '100%',
+        height: '100%',
+        opacity: 0.8,
+    },
+    emptyStateOverlay: {
+        flex: 1,
+        justifyContent: 'center',
+        alignItems: 'center',
+        backgroundColor: 'rgba(0,0,0,0.5)',
+        width: '100%',
+        padding: 20,
+    },
+    emptyStateTitle: {
+        fontSize: 24,
+        fontWeight: 'bold',
+        color: '#fff',
+        marginTop: 20,
+        textAlign: 'center',
+    },
+    emptyStateText: {
+        fontSize: 16,
+        color: 'rgba(255,255,255,0.9)',
+        textAlign: 'center',
+        marginTop: 10,
+        lineHeight: 24,
+        marginBottom: 30,
+    },
+    actionBtn: {
+        backgroundColor: '#4d73ba',
+        paddingHorizontal: 30,
+        paddingVertical: 15,
+        borderRadius: 25,
+        elevation: 5,
+        shadowColor: "#000",
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.25,
+        shadowRadius: 3.84,
+    },
+    actionBtnText: {
+        color: '#fff',
+        fontSize: 16,
+        fontWeight: 'bold',
     },
 });
