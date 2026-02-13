@@ -57,16 +57,22 @@ export default function DatingScreenV2() {
             if (!user) return;
             setCurrentUser(user);
 
-            // Fetch current user profile for route data
+            // Fetch current user profile for route data + preferences
             const { data: myProfile } = await supabase
                 .from('profiles')
-                .select('route_data')
+                .select('route_data, user_type, gender, preferred_gender, wants_dating, show_landlovers_dating')
                 .eq('id', user.id)
                 .single();
 
             const myRoute = (myProfile?.route_data as any[]) || [];
             setUserRoute(myRoute);
             const referencePoint = myRoute.length > 0 ? myRoute[0] : null;
+
+            // My dating preferences
+            const myGender = myProfile?.gender || 'other';
+            const myPreferredGender = myProfile?.preferred_gender || 'everyone';
+            const showLandlovers = myProfile?.show_landlovers_dating !== false;
+            const isNomad = myProfile?.user_type !== 'landlover';
 
             // Get already-swiped IDs
             const { data: swipes } = await supabase
@@ -76,20 +82,50 @@ export default function DatingScreenV2() {
             const swipedIds = swipes?.map(s => s.swipee_id) || [];
 
             // Fetch profiles excluding self and already swiped
+            // Only show profiles that want to date
             let query = supabase
                 .from('profiles')
                 .select('*')
                 .neq('id', user.id);
 
+            // wants_dating must be true or NULL (legacy users default to true)
+            // Note: Postgres neq ignores NULLs, so we handle it on client or with better server filter
+            // For simplicity and legacy support, we'll fetch then filter more on client if needed
+            // but we'll try to exclude explicit 'false' seekers
+            query = query.or('wants_dating.eq.true,wants_dating.is.null');
+
             if (swipedIds.length > 0) {
-                const filterString = `(${swipedIds.map(id => `"${id}"`).join(',')})`;
-                query = query.filter('id', 'not.in', filterString);
+                query = query.not('id', 'in', `(${swipedIds.join(',')})`);
             }
 
-            const { data, error } = await query.limit(20);
+            // If nomad and doesn't want to see landlovers, filter them out
+            if (isNomad && !showLandlovers) {
+                query = query.neq('user_type', 'landlover');
+            }
+
+            // Filter by preferred gender (if not 'everyone')
+            if (myPreferredGender && myPreferredGender !== 'everyone') {
+                // If they have a preference, match strictly. 
+                // Note: This matches NULLs out too, which is why demo profiles weren't showing up.
+                query = query.eq('gender', myPreferredGender);
+            }
+
+            const { data, error } = await query.limit(40); // Fetch more to allow for filtering
             if (error) throw error;
 
-            const formatted = data?.map(p => {
+            // Client-side filter: only show profiles whose preferred_gender matches my gender (or everyone)
+            const filtered = data?.filter(p => {
+                // 1. Double check they want dating (fallback for NULLs)
+                if (p.wants_dating === false) return false;
+
+                // 2. Bidirectional check: Do they want someone of my gender?
+                const theirPref = p.preferred_gender || 'everyone';
+                if (theirPref !== 'everyone' && theirPref !== myGender) return false;
+
+                return true;
+            }) || [];
+
+            const formatted = filtered.map(p => {
                 let distanceStr = 'Nearby';
                 const pRoute = p.route_data;
                 if (referencePoint && pRoute && Array.isArray(pRoute) && pRoute.length > 0) {
@@ -109,7 +145,7 @@ export default function DatingScreenV2() {
                     distance: distanceStr,
                     route_data: p.route_data || [],
                 };
-            }) || [];
+            });
 
             setProfiles(formatted);
             setCurrentIndex(0);
@@ -262,7 +298,7 @@ export default function DatingScreenV2() {
     const nextProfile = profiles[currentIndex + 1];
 
     const openProfile = (profile: any) => {
-        navigation.navigate('ProfileDetail', { profile });
+        navigation.navigate('ProfileDetail', { profile, myRouteData: userRoute });
     };
 
     return (

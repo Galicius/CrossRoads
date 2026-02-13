@@ -50,11 +50,13 @@ export default function AuthScreen() {
         };
     }, []);
 
+    const isDefaultInvite = route.params?.isDefaultInvite || false;
     const invitedBy = route.params?.invitedBy || null;
+    const userType = route.params?.userType || (invitedBy || isDefaultInvite ? 'nomad' : null); // 'nomad' | 'landlover' | null (login)
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
     const [loading, setLoading] = useState(false);
-    const [isSignUp, setIsSignUp] = useState(!!invitedBy); // Default to sign-up if coming from invite
+    const [isSignUp, setIsSignUp] = useState(!!invitedBy || !!userType || isDefaultInvite); // Default to sign-up if coming from invite or landlover path
 
     // Interpolations
     const imageWidth = keyboardAnim.interpolate({
@@ -84,12 +86,27 @@ export default function AuthScreen() {
                 });
                 if (error) throw error;
 
-                // If user was invited, mark them as verified
-                if (invitedBy && signUpData.user) {
-                    await supabase
-                        .from('profiles')
-                        .update({ is_verified: true, invited_by: invitedBy })
-                        .eq('id', signUpData.user.id);
+                // Handle profile setup for signup
+                if (signUpData.user) {
+                    const updates: any = {};
+
+                    if (invitedBy) {
+                        updates.invited_by = invitedBy;
+                        updates.is_verified = true;
+                        updates.user_type = 'nomad';
+                    } else if (isDefaultInvite) {
+                        updates.is_verified = true;
+                        updates.user_type = 'nomad';
+                    } else if (userType) {
+                        updates.user_type = userType;
+                    }
+
+                    if (Object.keys(updates).length > 0) {
+                        await supabase
+                            .from('profiles')
+                            .update(updates)
+                            .eq('id', signUpData.user.id);
+                    }
                 }
 
                 Alert.alert('Success', 'Check your email for the confirmation link!');
@@ -107,10 +124,12 @@ export default function AuthScreen() {
                     .eq('id', data.user.id)
                     .single();
 
-                if (profile) {
+                if (profile && profile.full_name) {
                     navigation.replace('HomeTabs');
                 } else {
-                    navigation.replace('Onboarding');
+                    // Pass user type to onboarding (from profile DB or route param)
+                    const uType = (profile as any)?.user_type || userType || 'nomad';
+                    navigation.replace('Onboarding', { userType: uType });
                 }
             }
         } catch (error: any) {
@@ -119,6 +138,20 @@ export default function AuthScreen() {
             setLoading(false);
         }
     }
+
+    const getTitle = () => {
+        if (!isSignUp) return 'Welcome Back';
+        if (userType === 'landlover') return 'Join as Landlover';
+        if (invitedBy) return 'Verified Nomad';
+        return 'Create Account';
+    };
+
+    const getSubtitle = () => {
+        if (!isSignUp) return 'Log in to continue your journey.';
+        if (userType === 'landlover') return 'Explore the community from home.';
+        if (invitedBy) return 'You\'re verified! Create your account to get started.';
+        return 'Join the community.';
+    };
 
     return (
         <SafeAreaView style={styles.safeArea}>
@@ -152,8 +185,22 @@ export default function AuthScreen() {
                         </Animated.View>
 
                         <View style={styles.content}>
-                            <Text style={styles.title}>{isSignUp ? 'Create Account' : 'Welcome Back'}</Text>
-                            <Text style={styles.subtitle}>{isSignUp ? 'Join the community.' : 'Log in to continue your journey.'}</Text>
+                            <Text style={styles.title}>{getTitle()}</Text>
+                            <Text style={styles.subtitle}>{getSubtitle()}</Text>
+
+                            {/* User type badge */}
+                            {isSignUp && userType && (
+                                <View style={[styles.typeBadge, userType === 'nomad' ? styles.nomadBadge : styles.landloverBadge]}>
+                                    <Ionicons
+                                        name={userType === 'nomad' ? 'compass-outline' : 'home-outline'}
+                                        size={16}
+                                        color={userType === 'nomad' ? '#34C759' : '#4d73ba'}
+                                    />
+                                    <Text style={[styles.typeBadgeText, { color: userType === 'nomad' ? '#34C759' : '#4d73ba' }]}>
+                                        {userType === 'nomad' ? '✓ Verified Nomad' : 'Landlover'}
+                                    </Text>
+                                </View>
+                            )}
 
                             <View style={{ gap: 15, marginBottom: 30 }}>
                                 <TextInput
@@ -208,7 +255,20 @@ const styles = StyleSheet.create({
     innerContainer: { flex: 1, backgroundColor: 'white' },
     content: { flex: 1, justifyContent: 'center', padding: 35 },
     title: { fontSize: 32, fontWeight: 'bold', color: '#4d73ba', marginBottom: 10, marginTop: 50 },
-    subtitle: { fontSize: 16, color: '#666', marginBottom: 35 },
+    subtitle: { fontSize: 16, color: '#666', marginBottom: 20 },
+    typeBadge: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        alignSelf: 'flex-start',
+        paddingHorizontal: 14,
+        paddingVertical: 6,
+        borderRadius: 20,
+        marginBottom: 20,
+        gap: 6,
+    },
+    nomadBadge: { backgroundColor: '#e8f8ed' },
+    landloverBadge: { backgroundColor: '#eef0ff' },
+    typeBadgeText: { fontSize: 13, fontWeight: '600' },
     input: { backgroundColor: 'white', padding: 15, borderRadius: 10, borderWidth: 1, borderColor: '#eee', fontSize: 16 },
     googleBtn: {
         backgroundColor: 'white',

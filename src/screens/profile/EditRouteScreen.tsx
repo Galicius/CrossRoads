@@ -30,6 +30,23 @@ export default function EditRouteScreen() {
         if (route.params?.currentRoute) {
             setCheckpoints(route.params.currentRoute);
         }
+        // Check if user is landlover - restrict route editing
+        (async () => {
+            const { data: { user } } = await supabase.auth.getUser();
+            if (!user) return;
+            const { data: profile } = await supabase
+                .from('profiles')
+                .select('user_type')
+                .eq('id', user.id)
+                .single();
+            if ((profile as any)?.user_type === 'landlover') {
+                Alert.alert(
+                    'Route Planning Restricted',
+                    'Join the Nomad community and receive an invite code to unlock route planning.',
+                    [{ text: 'OK', onPress: () => navigation.goBack() }]
+                );
+            }
+        })();
     }, []);
 
     const handleAddPlace = (place: { name: string; lat: number; lng: number }) => {

@@ -1,11 +1,12 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, TextInput, Image, TouchableOpacity, ScrollView, Alert, ActivityIndicator, FlatList } from 'react-native';
+import { View, Text, StyleSheet, TextInput, Image, TouchableOpacity, ScrollView, Alert, ActivityIndicator, FlatList, Switch } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { CommonActions, useNavigation } from '@react-navigation/native';
 import * as ImagePicker from 'expo-image-picker';
 import { supabase } from '@/lib/supabase';
 import { IconSymbol } from '@/components/ui/IconSymbol';
 import { Toast } from '@/components/ui/Toast';
+import Ionicons from '@expo/vector-icons/Ionicons';
 
 
 export default function EditProfileScreen() {
@@ -20,6 +21,11 @@ export default function EditProfileScreen() {
     const [age, setAge] = useState('');
     const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
     const [images, setImages] = useState<string[]>([]);
+    const [userType, setUserType] = useState<string | null>(null);
+
+    // Nomad Settings
+    const [showLandloversDating, setShowLandloversDating] = useState(true);
+    const [showLandloversSocial, setShowLandloversSocial] = useState(true);
 
     const [routeData, setRouteData] = useState<any[]>([]);
     const [toast, setToast] = useState<{ visible: boolean; message: string; type: 'success' | 'error' }>({
@@ -54,6 +60,9 @@ export default function EditProfileScreen() {
                 setAvatarUrl(data.avatar_url);
                 setImages(data.images || []);
                 setRouteData((data.route_data as any[]) || []);
+                setUserType(data.user_type);
+                setShowLandloversDating(data.show_landlovers_dating !== false);
+                setShowLandloversSocial(data.show_landlovers_social !== false);
             }
         } catch (error) {
             console.error('Error fetching profile:', error);
@@ -150,6 +159,8 @@ export default function EditProfileScreen() {
                 age: age ? parseInt(age) : null,
                 avatar_url: avatarUrl,
                 images: images,
+                show_landlovers_dating: showLandloversDating,
+                show_landlovers_social: showLandloversSocial,
                 updated_at: new Date().toISOString(),
             };
 
@@ -272,6 +283,43 @@ export default function EditProfileScreen() {
                     <IconSymbol name="chevron.right" size={16} color="#ccc" />
                 </TouchableOpacity>
 
+                {/* Nomad Settings Section */}
+                {userType !== 'landlover' && (
+                    <View style={styles.section}>
+                        <View style={styles.settingsHeader}>
+                            <Ionicons name="settings-outline" size={20} color="#4d73ba" />
+                            <Text style={styles.sectionTitle}> Nomad Settings</Text>
+                        </View>
+                        <Text style={styles.sectionSubtitle}>Control what you see in the app</Text>
+
+                        <View style={styles.settingRow}>
+                            <View style={{ flex: 1 }}>
+                                <Text style={styles.settingLabel}>Show Landlovers in Dating</Text>
+                                <Text style={styles.settingSublabel}>See non-nomad profiles in dating cards</Text>
+                            </View>
+                            <Switch
+                                value={showLandloversDating}
+                                onValueChange={setShowLandloversDating}
+                                trackColor={{ false: '#ddd', true: '#4d73ba' }}
+                                thumbColor="#fff"
+                            />
+                        </View>
+
+                        <View style={styles.settingRow}>
+                            <View style={{ flex: 1 }}>
+                                <Text style={styles.settingLabel}>Show Landlovers in Social</Text>
+                                <Text style={styles.settingSublabel}>See non-nomad profiles in social feed</Text>
+                            </View>
+                            <Switch
+                                value={showLandloversSocial}
+                                onValueChange={setShowLandloversSocial}
+                                trackColor={{ false: '#ddd', true: '#4d73ba' }}
+                                thumbColor="#fff"
+                            />
+                        </View>
+                    </View>
+                )}
+
                 {/* Logout Button */}
                 <TouchableOpacity onPress={handleLogout} style={styles.logoutBtn}>
                     <Text style={styles.logoutText}>Log Out</Text>
@@ -347,5 +395,30 @@ const styles = StyleSheet.create({
     logoutBtn: {
         backgroundColor: '#ffebee', padding: 16, borderRadius: 12, alignItems: 'center', justifyContent: 'center'
     },
-    logoutText: { color: '#d32f2f', fontWeight: '600', fontSize: 16 }
+    logoutText: { color: '#d32f2f', fontWeight: '600', fontSize: 16 },
+
+    // New styles for Nomad Settings
+    settingsHeader: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        marginBottom: 8,
+    },
+    settingRow: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        paddingVertical: 12,
+        borderBottomWidth: 1,
+        borderBottomColor: '#f0f0f0',
+    },
+    settingLabel: {
+        fontSize: 16,
+        fontWeight: '500',
+        color: '#333',
+    },
+    settingSublabel: {
+        fontSize: 13,
+        color: '#888',
+        marginTop: 2,
+    },
 });

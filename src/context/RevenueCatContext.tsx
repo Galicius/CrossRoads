@@ -83,14 +83,15 @@ export const RevenueCatProvider: React.FC<{ children: React.ReactNode }> = ({ ch
             const { data: { user } } = await supabase.auth.getUser();
             if (!user) return;
 
-            // 1. Verify Main Profile (for all users)
+            // 1. Check profile type - only verify nomads, not landlovers
+            // Landlovers get Pro features but verification (badge) only comes via invite code
             const { data: profile } = await supabase
                 .from('profiles')
-                .select('is_verified')
+                .select('is_verified, user_type')
                 .eq('id', user.id)
                 .single();
 
-            if (profile && !profile.is_verified) {
+            if (profile && !profile.is_verified && profile.user_type !== 'landlover') {
                 await supabase
                     .from('profiles')
                     .update({ is_verified: true })

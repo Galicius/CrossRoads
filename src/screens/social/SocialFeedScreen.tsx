@@ -154,13 +154,29 @@ export default function SocialFeedScreen() {
             const { data: { user } } = await supabase.auth.getUser();
             if (user) setCurrentUserId(user.id);
 
+            // Fetch current user preferences for landlover filtering
+            let showLandlovers = true;
+            if (user) {
+                const { data: myProfile } = await supabase
+                    .from('profiles')
+                    .select('user_type, show_landlovers_social')
+                    .eq('id', user.id)
+                    .single();
+
+                const isNomad = myProfile?.user_type !== 'landlover';
+                showLandlovers = !isNomad || (myProfile as any)?.show_landlovers_social !== false;
+            }
+
             const { data, error } = await supabase
                 .from('daily_activities')
                 .select('*, profiles(*)');
 
             if (error) throw error;
-            // Filter out the current user
-            const filtered = (data || []).filter(item => item.user_id !== user?.id);
+            // Filter out the current user and optionally landlovers
+            let filtered = (data || []).filter(item => item.user_id !== user?.id);
+            if (!showLandlovers) {
+                filtered = filtered.filter(item => (item.profiles as any)?.user_type !== 'landlover');
+            }
             setPeopleData(filtered);
         } catch (error) {
             console.error('Error fetching people activities:', error);
@@ -326,8 +342,7 @@ export default function SocialFeedScreen() {
                     const profile = item.profiles;
                     const pRoute = profile?.route_data;
                     if (pRoute && Array.isArray(pRoute) && pRoute.length > 0) {
-                        const firstCp = pRoute[0];
-                        return { ...item, distanceKm: haversineKm(referencePoint.lat, referencePoint.lng, firstCp.lat, firstCp.lng) };
+                        return { ...item, distanceKm: minDistanceToRoute(referencePoint.lat, referencePoint.lng, pRoute) };
                     }
                     return { ...item, distanceKm: Infinity };
                 });
@@ -335,13 +350,16 @@ export default function SocialFeedScreen() {
                 currentData = currentData.map((item: any) => {
                     const pRoute = item.profiles?.route_data;
                     if (pRoute && Array.isArray(pRoute) && pRoute.length > 0) {
-                        const firstCp = pRoute[0];
-                        return { ...item, distanceKm: haversineKm(referencePoint.lat, referencePoint.lng, firstCp.lat, firstCp.lng) };
+                        return { ...item, distanceKm: minDistanceToRoute(referencePoint.lat, referencePoint.lng, pRoute) };
                     }
                     return { ...item, distanceKm: Infinity };
                 });
             }
             currentData.sort((a: any, b: any) => (a.distanceKm ?? Infinity) - (b.distanceKm ?? Infinity));
+
+            // Only show items within 50km of the selected route checkpoint
+            const MAX_DISTANCE_KM = 50;
+            currentData = currentData.filter((item: any) => (item.distanceKm ?? Infinity) <= MAX_DISTANCE_KM);
         }
 
         return currentData;

@@ -23,6 +23,7 @@ type ProfileDetailParams = {
             distance?: string;
             route_data?: any[];
         };
+        myRouteData?: any[];
     };
 };
 
@@ -30,7 +31,7 @@ export default function ProfileDetailScreen() {
     const navigation = useNavigation();
     const route = useRoute<RouteProp<ProfileDetailParams, 'ProfileDetail'>>();
     const insets = useSafeAreaInsets();
-    const { profile } = route.params;
+    const { profile, myRouteData } = route.params;
 
     // Horizontal paging: 0 = Info, 1 = Travel Path
     const [activePage, setActivePage] = useState(0);
@@ -39,6 +40,17 @@ export default function ProfileDetailScreen() {
     const checkpoints: Checkpoint[] = (profile.route_data || []).map((p: any, i: number) => ({
         id: String(i),
         name: p.name || `Stop ${i + 1}`,
+        lat: p.lat,
+        lng: p.lng,
+        startDate: p.startDate,
+        endDate: p.endDate,
+        durationDays: p.durationDays,
+    }));
+
+    // Current user's route as secondary checkpoints
+    const myCheckpoints: Checkpoint[] = (myRouteData || []).map((p: any, i: number) => ({
+        id: `my-${i}`,
+        name: p.name || `My Stop ${i + 1}`,
         lat: p.lat,
         lng: p.lng,
         startDate: p.startDate,
@@ -136,7 +148,13 @@ export default function ProfileDetailScreen() {
         // Page 1: Travel Path Map
         <View key="map" style={{ width, flex: 1 }}>
             {checkpoints.length > 0 ? (
-                <RouteMap checkpoints={checkpoints} style={{ flex: 1 }} />
+                <RouteMap
+                    checkpoints={checkpoints}
+                    secondaryCheckpoints={myCheckpoints.length > 0 ? myCheckpoints : undefined}
+                    primaryLabel={`${profile.name}'s route`}
+                    secondaryLabel="My route"
+                    style={{ flex: 1 }}
+                />
             ) : (
                 <View style={styles.emptyMap}>
                     <Text style={styles.emptyMapText}>No travel path yet</Text>

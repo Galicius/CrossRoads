@@ -4,6 +4,7 @@ import { useNavigation } from '@react-navigation/native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { supabase } from '../../lib/supabase';
+import { useFocusEffect } from '@react-navigation/native';
 
 const EXPERTISE_OPTIONS = [
     { name: 'Solar', icon: 'sunny-outline' },
@@ -24,6 +25,38 @@ export default function BuilderRegistrationScreen() {
     const [radius, setRadius] = useState('50');
     const [expertise, setExpertise] = useState<string[]>([]);
     const [loading, setLoading] = useState(false);
+    const [isEditing, setIsEditing] = useState(false);
+
+    React.useEffect(() => {
+        fetchExistingProfile();
+    }, []);
+
+    const fetchExistingProfile = async () => {
+        setLoading(true);
+        try {
+            const { data: { user } } = await supabase.auth.getUser();
+            if (!user) return;
+
+            const { data, error } = await supabase
+                .from('builder_profiles')
+                .select('*')
+                .eq('id', user.id)
+                .single();
+
+            if (data) {
+                setBusinessName(data.business_name || '');
+                setBio(data.bio || '');
+                setRate(data.hourly_rate?.toString() || '');
+                setRadius(data.travel_radius_km?.toString() || '50');
+                setExpertise(data.expertise || []);
+                setIsEditing(true);
+            }
+        } catch (error) {
+            console.error('Error fetching builder profile:', error);
+        } finally {
+            setLoading(false);
+        }
+    };
 
     const toggleExpertise = (item: string) => {
         if (expertise.includes(item)) {
@@ -44,18 +77,19 @@ export default function BuilderRegistrationScreen() {
             const { data: { user } } = await supabase.auth.getUser();
             if (!user) throw new Error('Not authenticated');
 
-            const { error } = await supabase.from('builder_profiles').insert({
+            const { error } = await supabase.from('builder_profiles').upsert({
                 id: user.id,
                 business_name: businessName,
                 bio,
                 hourly_rate: parseFloat(rate),
                 travel_radius_km: parseInt(radius),
                 expertise,
-                is_active: true
+                is_active: true,
+                updated_at: new Date().toISOString()
             });
 
             if (error) throw error;
-            Alert.alert('Success', 'Welcome to the Builder Network!', [
+            Alert.alert('Success', isEditing ? 'Profile updated!' : 'Welcome to the Builder Network!', [
                 { text: 'OK', onPress: () => navigation.goBack() }
             ]);
 
@@ -69,7 +103,7 @@ export default function BuilderRegistrationScreen() {
     return (
         <SafeAreaView style={styles.container}>
             <View style={styles.header}>
-                <Text style={styles.headerTitle}>Become a Builder</Text>
+                <Text style={styles.headerTitle}>{isEditing ? 'Edit Builder Profile' : 'Become a Builder'}</Text>
                 <TouchableOpacity onPress={() => navigation.goBack()} style={styles.closeButton}>
                     <Ionicons name="close" size={24} color="#333" />
                 </TouchableOpacity>
@@ -148,7 +182,9 @@ export default function BuilderRegistrationScreen() {
                     {loading ? (
                         <ActivityIndicator color="white" />
                     ) : (
-                        <Text style={styles.modalButtonText}>Register as Builder</Text>
+                        <Text style={styles.modalButtonText}>
+                            {isEditing ? 'Update Builder Profile' : 'Register as Builder'}
+                        </Text>
                     )}
                 </TouchableOpacity>
             </ScrollView>
