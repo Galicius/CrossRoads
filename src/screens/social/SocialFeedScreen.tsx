@@ -29,7 +29,7 @@ function minDistanceToRoute(eventLat: number, eventLng: number, route: any[]): n
     return min;
 }
 
-const TABS = ['People', 'Events', 'Builders'];
+const TABS = ['Events', 'People', 'Builders'];
 const TAGS = [
     { name: 'Sport', icon: 'football-outline' },
     { name: 'Art', icon: 'color-palette-outline' },
@@ -154,13 +154,29 @@ export default function SocialFeedScreen() {
             const { data: { user } } = await supabase.auth.getUser();
             if (user) setCurrentUserId(user.id);
 
+            // Fetch current user preferences for landlover filtering
+            let showLandlovers = true;
+            if (user) {
+                const { data: myProfile } = await supabase
+                    .from('profiles')
+                    .select('user_type, show_landlovers_social')
+                    .eq('id', user.id)
+                    .single();
+
+                const isNomad = myProfile?.user_type !== 'landlover';
+                showLandlovers = !isNomad || (myProfile as any)?.show_landlovers_social !== false;
+            }
+
             const { data, error } = await supabase
                 .from('daily_activities')
                 .select('*, profiles(*)');
 
             if (error) throw error;
-            // Filter out the current user
-            const filtered = (data || []).filter(item => item.user_id !== user?.id);
+            // Filter out the current user and optionally landlovers
+            let filtered = (data || []).filter(item => item.user_id !== user?.id);
+            if (!showLandlovers) {
+                filtered = filtered.filter(item => (item.profiles as any)?.user_type !== 'landlover');
+            }
             setPeopleData(filtered);
         } catch (error) {
             console.error('Error fetching people activities:', error);
@@ -326,8 +342,7 @@ export default function SocialFeedScreen() {
                     const profile = item.profiles;
                     const pRoute = profile?.route_data;
                     if (pRoute && Array.isArray(pRoute) && pRoute.length > 0) {
-                        const firstCp = pRoute[0];
-                        return { ...item, distanceKm: haversineKm(referencePoint.lat, referencePoint.lng, firstCp.lat, firstCp.lng) };
+                        return { ...item, distanceKm: minDistanceToRoute(referencePoint.lat, referencePoint.lng, pRoute) };
                     }
                     return { ...item, distanceKm: Infinity };
                 });
@@ -335,13 +350,16 @@ export default function SocialFeedScreen() {
                 currentData = currentData.map((item: any) => {
                     const pRoute = item.profiles?.route_data;
                     if (pRoute && Array.isArray(pRoute) && pRoute.length > 0) {
-                        const firstCp = pRoute[0];
-                        return { ...item, distanceKm: haversineKm(referencePoint.lat, referencePoint.lng, firstCp.lat, firstCp.lng) };
+                        return { ...item, distanceKm: minDistanceToRoute(referencePoint.lat, referencePoint.lng, pRoute) };
                     }
                     return { ...item, distanceKm: Infinity };
                 });
             }
             currentData.sort((a: any, b: any) => (a.distanceKm ?? Infinity) - (b.distanceKm ?? Infinity));
+
+            // Only show items within 50km of the selected route checkpoint
+            const MAX_DISTANCE_KM = 50;
+            currentData = currentData.filter((item: any) => (item.distanceKm ?? Infinity) <= MAX_DISTANCE_KM);
         }
 
         return currentData;
@@ -443,7 +461,12 @@ export default function SocialFeedScreen() {
                     params: { initialTab: 'events' }
                 });
                 setTimeout(() => {
-                    navigation.navigate('ChatDetail', { chatId, otherUserName: event.title });
+                    navigation.navigate('ChatDetail', {
+                        chatId,
+                        otherUserName: event.title,
+                        isGroup: true,
+                        otherUserAvatar: event.image_url
+                    });
                 }, 100);
             } else {
                 Alert.alert('Error', 'Could not initialize chat (No ID returned).');
@@ -580,40 +603,46 @@ export default function SocialFeedScreen() {
             const profile = activity.profiles;
             return (
                 <View style={styles.personCard}>
-                    <View style={styles.personHeader}>
+                    <View style={styles.personCardContent}>
                         <ExpoImage
                             source={{ uri: profile?.avatar_url || 'https://images.unsplash.com/photo-1570295999919-56ceb5ecca61?ixlib=rb-1.2.1&auto=format&fit=crop&w=500&q=80' }}
                             style={styles.personAvatar}
                         />
                         <View style={styles.personInfo}>
-                            <Text style={styles.personName}>{profile?.full_name || 'User'}</Text>
-                            <View style={styles.categoryBadgeSmall}>
-                                <Text style={styles.categoryBadgeTextSmall}>{activity.category}</Text>
+                            <View style={styles.personHeaderRow}>
+                                <Text style={styles.personName}>{profile?.full_name || 'User'}</Text>
+                                <View style={styles.categoryBadgeTopRight}>
+                                    <Text style={styles.categoryBadgeTextSmall}>{activity.category}</Text>
+                                </View>
                             </View>
-                        </View>
-                        <TouchableOpacity
-                            style={styles.messageIconBtn}
-                            onPress={() => handleStartChat(profile)}
-                            disabled={messagingLoading === profile?.id}
-                        >
-                            {messagingLoading === profile?.id ? (
-                                <ActivityIndicator size="small" color="#4d73ba" />
-                            ) : (
-                                <Ionicons name="chatbubble-ellipses" size={24} color="#4d73ba" />
+
+                            {item.distanceKm != null && item.distanceKm < Infinity && (
+                                <View style={styles.distanceContainer}>
+                                    <Text style={styles.distanceText}>
+                                        {item.distanceKm < 1 ? 'Nearby' : `${Math.round(item.distanceKm)} km away`}
+                                    </Text>
+                                </View>
                             )}
-                        </TouchableOpacity>
+
+                            <Text style={styles.activityContent} numberOfLines={2}>{activity.content}</Text>
+                        </View>
                     </View>
 
-                    {item.distanceKm != null && item.distanceKm < Infinity && (
-                        <View style={styles.onRouteBadge}>
-                            <Ionicons name="navigate" size={12} color="white" />
-                            <Text style={styles.onRouteBadgeText}>
-                                {item.distanceKm < 1 ? 'Nearby' : `${Math.round(item.distanceKm)} km away`}
-                            </Text>
-                        </View>
-                    )}
+                    <TouchableOpacity
+                        style={styles.chatActionButton}
+                        onPress={() => handleStartChat(profile)}
+                        disabled={messagingLoading === profile?.id}
+                    >
+                        {messagingLoading === profile?.id ? (
+                            <ActivityIndicator size="small" color="#fff" />
+                        ) : (
+                            <>
+                                <Ionicons name="chatbubbles-outline" size={18} color="#fff" style={{ marginRight: 6 }} />
+                                <Text style={styles.chatActionButtonText}>Chat</Text>
+                            </>
+                        )}
+                    </TouchableOpacity>
 
-                    <Text style={styles.activityContent}>"{activity.content}"</Text>
                 </View>
             );
         }
@@ -622,43 +651,51 @@ export default function SocialFeedScreen() {
             const builderProfile = item.profiles;
             return (
                 <View style={styles.personCard}>
-                    <View style={styles.personHeader}>
+                    <View style={styles.personCardContent}>
                         <ExpoImage
                             source={{ uri: builderProfile?.avatar_url || 'https://images.unsplash.com/photo-1570295999919-56ceb5ecca61?ixlib=rb-1.2.1&auto=format&fit=crop&w=500&q=80' }}
                             style={styles.personAvatar}
                         />
                         <View style={styles.personInfo}>
-                            <Text style={styles.personName}>{item.business_name || builderProfile?.full_name || 'Builder'}</Text>
-                            <Text style={styles.builderRate}>${item.hourly_rate}/hr</Text>
-                        </View>
-                        <TouchableOpacity
-                            style={styles.messageIconBtn}
-                            onPress={() => handleStartBuilderChat(item)}
-                            disabled={messagingLoading === item.id}
-                        >
-                            {messagingLoading === item.id ? (
-                                <ActivityIndicator size="small" color="#4d73ba" />
-                            ) : (
-                                <Ionicons name="chatbubble-ellipses" size={24} color="#4d73ba" />
-                            )}
-                        </TouchableOpacity>
-                    </View>
-                    <View style={styles.builderChips}>
-                        {item.expertise?.slice(0, 4).map((ex: string) => (
-                            <View key={ex} style={styles.builderChip}>
-                                <Text style={styles.builderChipText}>{ex}</Text>
+                            <View style={styles.personHeaderRow}>
+                                <Text style={styles.personName}>{item.business_name || builderProfile?.full_name || 'Builder'}</Text>
+                                <Text style={styles.builderRate}>${item.hourly_rate}/hr</Text>
                             </View>
-                        ))}
-                    </View>
-                    {item.distanceKm != null && item.distanceKm < Infinity && (
-                        <View style={styles.onRouteBadge}>
-                            <Ionicons name="navigate" size={12} color="white" />
-                            <Text style={styles.onRouteBadgeText}>
-                                {item.distanceKm < 1 ? 'Nearby' : `${Math.round(item.distanceKm)} km away`}
-                            </Text>
+
+                            {item.distanceKm != null && item.distanceKm < Infinity && (
+                                <View style={styles.distanceContainer}>
+                                    <Text style={styles.distanceText}>
+                                        {item.distanceKm < 1 ? 'Nearby' : `${Math.round(item.distanceKm)} km away`}
+                                    </Text>
+                                </View>
+                            )}
+
+                            {item.bio ? <Text style={styles.activityContent} numberOfLines={2}>{item.bio}</Text> : null}
+
+                            <View style={styles.builderChips}>
+                                {item.expertise?.slice(0, 4).map((ex: string) => (
+                                    <View key={ex} style={styles.builderChip}>
+                                        <Text style={styles.builderChipText}>{ex}</Text>
+                                    </View>
+                                ))}
+                            </View>
                         </View>
-                    )}
-                    {item.bio ? <Text style={styles.activityContent} numberOfLines={2}>{item.bio}</Text> : null}
+                    </View>
+
+                    <TouchableOpacity
+                        style={styles.chatActionButton}
+                        onPress={() => handleStartBuilderChat(item)}
+                        disabled={messagingLoading === item.id}
+                    >
+                        {messagingLoading === item.id ? (
+                            <ActivityIndicator size="small" color="#fff" />
+                        ) : (
+                            <>
+                                <Ionicons name="chatbubbles-outline" size={18} color="#fff" style={{ marginRight: 6 }} />
+                                <Text style={styles.chatActionButtonText}>Chat</Text>
+                            </>
+                        )}
+                    </TouchableOpacity>
                 </View>
             );
         }
@@ -703,84 +740,97 @@ export default function SocialFeedScreen() {
 
                 {/* Main Content Area */}
                 <View style={styles.contentContainer}>
-                    {/* Checkpoint Picker */}
-                    {userRoute.length > 0 && (
-                        <TouchableOpacity
-                            style={styles.checkpointBar}
-                            onPress={() => {
-                                if (!isPro) {
-                                    Alert.alert(
-                                        'Pro Feature',
-                                        'Upgrade to Pro to search from different checkpoints on your route!',
-                                        [
-                                            { text: 'Cancel', style: 'cancel' },
-                                            { text: 'Upgrade', onPress: () => navigation.navigate('Paywall') },
-                                        ]
-                                    );
-                                } else {
-                                    setCheckpointPickerVisible(true);
-                                }
-                            }}
-                        >
-                            <Ionicons name="location" size={16} color="#5B7FFF" />
-                            <Text style={styles.checkpointBarText}>
-                                Sorting from: {userRoute[Math.min(selectedCheckpointIndex, userRoute.length - 1)]?.name || `Checkpoint ${selectedCheckpointIndex + 1}`}
-                            </Text>
-                            {isPro ? (
-                                <Ionicons name="chevron-down" size={16} color="#5B7FFF" />
-                            ) : (
-                                <View style={styles.proBadge}>
-                                    <Text style={styles.proBadgeText}>PRO</Text>
-                                </View>
-                            )}
-                        </TouchableOpacity>
-                    )}
-                    {/* Search & Filter */}
-                    <View style={styles.searchRow}>
-                        <View style={styles.searchBar}>
-                            <Ionicons name="search-outline" size={20} color="#999" style={{ marginRight: 8 }} />
-                            <TextInput
-                                placeholder="Find groups and events..."
-                                placeholderTextColor="#999"
-                                style={styles.input}
-                                value={searchText}
-                                onChangeText={setSearchText}
-                            />
-                        </View>
-                        <TouchableOpacity style={styles.filterBtn} onPress={() => setFilterModalVisible(true)}>
-                            <Ionicons name="options-outline" size={24} color="#999" />
-                        </TouchableOpacity>
-                    </View>
-
-                    {/* Selected Filters / 'All' Display */}
-                    <View style={styles.tagsContainer}>
-                        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ paddingHorizontal: 20 }}>
-                            {selectedCategories.length === 0 ? (
-                                <View style={styles.tagBadge}>
-                                    <Ionicons name="layers-outline" size={16} color="white" style={{ marginRight: 6 }} />
-                                    <Text style={styles.tagText}>All</Text>
-                                </View>
-                            ) : (
-                                selectedCategories.map((cat, index) => {
-                                    const tagInfo = TAGS.find(t => t.name === cat);
-                                    return (
-                                        <View key={index} style={styles.tagBadge}>
-                                            <Ionicons name={(tagInfo?.icon || 'pricetag-outline') as any} size={16} color="white" style={{ marginRight: 6 }} />
-                                            <Text style={styles.tagText}>{cat}</Text>
-                                        </View>
-                                    );
-                                })
-                            )}
-                        </ScrollView>
-                    </View>
-
-                    {/* List */}
                     <FlatList
                         data={getFilteredData()}
                         renderItem={renderItem}
-                        keyExtractor={item => item.id}
+                        keyExtractor={(item) => item.id}
                         contentContainerStyle={styles.listContent}
                         showsVerticalScrollIndicator={false}
+                        ListHeaderComponent={
+                            <>
+                                {/* Checkpoint Picker */}
+                                {userRoute.length > 0 && (
+                                    <TouchableOpacity
+                                        style={styles.checkpointBar}
+                                        onPress={() => {
+                                            if (!isPro) {
+                                                Alert.alert(
+                                                    'Pro Feature',
+                                                    'Upgrade to Pro to search from different checkpoints on your route!',
+                                                    [
+                                                        { text: 'Cancel', style: 'cancel' },
+                                                        { text: 'Upgrade', onPress: () => navigation.navigate('Paywall') },
+                                                    ]
+                                                );
+                                            } else {
+                                                setCheckpointPickerVisible(true);
+                                            }
+                                        }}
+                                    >
+                                        <Ionicons name="location" size={16} color="#5B7FFF" />
+                                        <Text style={styles.checkpointBarText}>
+                                            Sorting from: {userRoute[Math.min(selectedCheckpointIndex, userRoute.length - 1)]?.name || `Checkpoint ${selectedCheckpointIndex + 1}`}
+                                        </Text>
+                                        {isPro ? (
+                                            <Ionicons name="chevron-down" size={16} color="#5B7FFF" />
+                                        ) : (
+                                            <View style={styles.proBadge}>
+                                                <Text style={styles.proBadgeText}>PRO</Text>
+                                            </View>
+                                        )}
+                                    </TouchableOpacity>
+                                )}
+                                {/* Search & Filter */}
+                                <View style={styles.searchRow}>
+                                    <View style={styles.searchBar}>
+                                        <Ionicons name="search-outline" size={20} color="#999" style={{ marginRight: 8 }} />
+                                        <TextInput
+                                            placeholder="Find groups and events..."
+                                            placeholderTextColor="#999"
+                                            style={styles.input}
+                                            value={searchText}
+                                            onChangeText={setSearchText}
+                                        />
+                                    </View>
+                                    <TouchableOpacity style={styles.filterBtn} onPress={() => setFilterModalVisible(true)}>
+                                        <Ionicons name="options-outline" size={24} color="#999" />
+                                    </TouchableOpacity>
+                                </View>
+
+                                {/* Selected Filters / 'All' Display */}
+                                <View style={styles.tagsContainer}>
+                                    <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ paddingHorizontal: 20 }}>
+                                        {selectedCategories.length === 0 ? (
+                                            <View style={styles.tagBadge}>
+                                                <Ionicons name="layers-outline" size={16} color="white" style={{ marginRight: 6 }} />
+                                                <Text style={styles.tagText}>All</Text>
+                                            </View>
+                                        ) : (
+                                            selectedCategories.map((cat, index) => {
+                                                const tagInfo = TAGS.find(t => t.name === cat);
+                                                return (
+                                                    <View key={index} style={styles.tagBadge}>
+                                                        <Ionicons name={(tagInfo?.icon || 'pricetag-outline') as any} size={16} color="white" style={{ marginRight: 6 }} />
+                                                        <Text style={styles.tagText}>{cat}</Text>
+                                                    </View>
+                                                );
+                                            })
+                                        )}
+                                    </ScrollView>
+                                </View>
+                            </>
+                        }
+                        ListEmptyComponent={
+                            loading ? (
+                                <ActivityIndicator size="large" color="#5B7FFF" style={{ marginTop: 50 }} />
+                            ) : (
+                                <View style={styles.emptyContainer}>
+                                    <ExpoImage source={require('@/assets/images/activity.jpg')} style={styles.emptyImage} />
+                                    <Text style={styles.emptyText}>No results found</Text>
+                                    <Text style={styles.emptySubtext}>Try adjusting filters or search terms</Text>
+                                </View>
+                            )
+                        }
                     />
                 </View>
             </View>
@@ -839,9 +889,17 @@ export default function SocialFeedScreen() {
                                         </TouchableOpacity>
                                     ))}
                                 </View>
-                                <TouchableOpacity style={styles.modalButton} onPress={() => setFilterModalVisible(false)}>
-                                    <Text style={styles.modalButtonText}>Apply Filters</Text>
-                                </TouchableOpacity>
+                                <View style={styles.modalActions}>
+                                    <TouchableOpacity
+                                        style={[styles.modalButton, styles.cancelButton]}
+                                        onPress={() => setFilterModalVisible(false)}
+                                    >
+                                        <Text style={[styles.modalButtonText, styles.cancelButtonText]}>Cancel</Text>
+                                    </TouchableOpacity>
+                                    <TouchableOpacity style={styles.modalButton} onPress={() => setFilterModalVisible(false)}>
+                                        <Text style={styles.modalButtonText}>Apply Filters</Text>
+                                    </TouchableOpacity>
+                                </View>
                             </View>
                         </TouchableWithoutFeedback>
                     </View>
@@ -1101,45 +1159,112 @@ const styles = StyleSheet.create({
         backgroundColor: '#5B7FFF',
         borderRadius: 2,
     },
+    emptyContainer: {
+        alignItems: 'center',
+        justifyContent: 'center',
+        paddingVertical: 40,
+    },
+    emptyImage: {
+        width: 120,
+        height: 120,
+        marginBottom: 16,
+        opacity: 0.5,
+    },
+    emptyText: {
+        fontSize: 18,
+        fontWeight: 'bold',
+        color: '#666',
+        marginBottom: 8,
+    },
+    emptySubtext: {
+        fontSize: 14,
+        color: '#999',
+    },
     personCard: {
         backgroundColor: 'white',
-        borderRadius: 20,
-        padding: 20,
-        marginBottom: 15,
-        elevation: 2,
+        borderRadius: 16,
+        padding: 12,
+        marginBottom: 16,
         shadowColor: '#000',
-        shadowOpacity: 0.05,
-        shadowRadius: 10,
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.08,
+        shadowRadius: 8,
+        elevation: 3,
+        borderWidth: 1,
+        borderColor: '#f8f8f8',
+        position: 'relative',
     },
-    personHeader: {
+    personCardContent: {
         flexDirection: 'row',
+        marginBottom: 8,
+    },
+    personHeaderRow: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
         alignItems: 'center',
-        marginBottom: 15,
+        marginBottom: 4,
     },
     personAvatar: {
-        width: 50,
-        height: 50,
-        borderRadius: 25,
-        marginRight: 15,
+        width: 80,
+        height: 80,
+        borderRadius: 40,
+        marginRight: 12,
+        backgroundColor: '#ddd',
     },
     personInfo: {
         flex: 1,
+        justifyContent: 'center',
     },
     personName: {
-        fontSize: 18,
+        fontSize: 16,
         fontWeight: 'bold',
         color: '#1A1A1A',
         marginBottom: 4,
+        marginRight: 80, // Space for category badge
     },
-    messageIconBtn: {
-        padding: 8,
+    categoryBadgeTopRight: {
+        position: 'absolute',
+        top: 0,
+        right: 0,
+        backgroundColor: '#F0F4FF',
+        paddingHorizontal: 8,
+        paddingVertical: 4,
+        borderRadius: 12,
+    },
+    chatActionButton: {
+        backgroundColor: '#5B7FFF', // Matched to Join button (Violet)
+        paddingVertical: 8,
+        paddingHorizontal: 12,
+        borderRadius: 20,
+        flexDirection: 'row',
+        alignItems: 'center',
+        alignSelf: 'flex-end',
+        marginTop: 4,
+    },
+    chatActionButtonText: {
+        color: 'white',
+        fontSize: 13,
+        fontWeight: '600',
+    },
+    distanceContainer: {
+        marginBottom: 4,
+        alignSelf: 'flex-start',
+        borderBottomWidth: 1,
+        borderColor: '#5B7FFF',
+        borderStyle: 'dashed',
+    },
+    distanceText: {
+        color: '#5B7FFF',
+        fontSize: 12,
+        fontWeight: '600',
+        paddingBottom: 2,
     },
     activityContent: {
-        fontSize: 16,
-        color: '#444',
-        fontStyle: 'italic',
-        lineHeight: 24,
-        marginBottom: 20,
+        fontSize: 14,
+        color: '#666',
+        // fontStyle: 'italic', // Removed italics
+        lineHeight: 20,
+        marginBottom: 8,
     },
     personMessageBtn: {
         backgroundColor: '#4d73ba',

@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { View, Text, StyleSheet, Dimensions, ScrollView, Image, ActivityIndicator, TouchableOpacity, Alert, TextInput } from 'react-native';
+import { Image as ExpoImage } from 'expo-image';
 import MapView, { Polyline, Marker, PROVIDER_GOOGLE } from 'react-native-maps';
 import { supabase } from '@/lib/supabase';
 import { useNavigation, useFocusEffect } from '@react-navigation/native';
@@ -10,8 +11,10 @@ import { useRevenueCat } from '@/context/RevenueCatContext';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import * as Clipboard from 'expo-clipboard';
 import QRCode from 'react-native-qrcode-svg';
+import { CameraView, Camera } from 'expo-camera';
 
 const { width } = Dimensions.get('window');
+const DEFAULT_INVITE_CODE = 'A1B2C3D4';
 
 // Fallback Mock Data
 const MOCK_PATH = [
@@ -32,9 +35,20 @@ export default function MyProfileScreen() {
     const [isSavingActivity, setIsSavingActivity] = useState(false);
     const navigation = useNavigation<any>();
 
-    useEffect(() => {
-        fetchProfile();
-    }, []);
+    // Landlover verification state
+    const [verifyMode, setVerifyMode] = useState<'idle' | 'scanner' | 'manual'>('idle');
+    const [manualCode, setManualCode] = useState('');
+    const [validatingCode, setValidatingCode] = useState(false);
+    const [hasCameraPermission, setHasCameraPermission] = useState<boolean | null>(null);
+    const [scanned, setScanned] = useState(false);
+
+
+
+    useFocusEffect(
+        React.useCallback(() => {
+            fetchProfile();
+        }, [])
+    );
 
     async function fetchProfile() {
         try {
@@ -44,14 +58,15 @@ export default function MyProfileScreen() {
                 return;
             }
 
-
             const { data, error } = await supabase
                 .from('profiles')
                 .select('*, route_data')
                 .eq('id', user.id)
                 .single();
 
-            if (data) setProfile(data);
+            if (data) {
+                setProfile(data);
+            }
 
             // Fetch daily activity
             const { data: activityData } = await supabase
@@ -61,7 +76,6 @@ export default function MyProfileScreen() {
                 .single();
 
             if (activityData) {
-                setDailyActivity(activityData.content);
                 setDailyActivity(activityData.content);
                 setDailyCategory(activityData.category);
             }
@@ -73,8 +87,6 @@ export default function MyProfileScreen() {
                 .eq('id', user.id)
                 .single();
 
-            // Also check 'builders' table if 'builder_profiles' is empty or related
-            // The schema showed 'builders' has 'owner_id', let's check that too
             const { data: buildersTable } = await supabase
                 .from('builders')
                 .select('*')
@@ -88,6 +100,9 @@ export default function MyProfileScreen() {
             setLoading(false);
         }
     }
+
+    const isNomad = profile?.user_type !== 'landlover';
+    const isLandlover = profile?.user_type === 'landlover';
 
     const saveDailyActivity = async () => {
         if (!dailyActivity.trim()) {
@@ -150,6 +165,107 @@ export default function MyProfileScreen() {
         );
     };
 
+    const handleEventChat = async (event: any) => {
+        try {
+            // @ts-ignore
+            const { data: chatId, error } = await supabase.rpc('get_or_create_event_chat', {
+                _event_id: event.id,
+                _event_name: event.title
+            });
+
+            if (error) throw error;
+            if (chatId) {
+                navigation.navigate('Chat', { initialTab: 'events' });
+                setTimeout(() => {
+                    navigation.navigate('ChatDetail', {
+                        chatId,
+                        otherUserName: event.title,
+                        isGroup: true,
+                        otherUserAvatar: event.image_url
+                    });
+                }, 100);
+            }
+        } catch (error: any) {
+            Alert.alert('Error', 'Could not open chat: ' + error.message);
+        }
+    };
+
+    // Landlover verification
+    const validateInviteCode = async (code: string) => {
+        setValidatingCode(true);
+        try {
+            const trimmed = code.trim().toUpperCase();
+            if (!trimmed) {
+                Alert.alert('Invalid', 'Please enter a valid invite code.');
+                return;
+            }
+
+            let isValid = false;
+            let inviterName = 'the Nomad community';
+
+            // Check hardcoded default code
+            if (trimmed === DEFAULT_INVITE_CODE) {
+                isValid = true;
+            } else {
+                // Look up in profiles
+                const { data: inviter } = await supabase
+                    .from('profiles')
+                    .select('id, full_name')
+                    .eq('invite_code', trimmed)
+                    .single();
+
+                if (inviter) {
+                    isValid = true;
+                    inviterName = inviter.full_name || 'a CrossRoads nomad';
+                }
+            }
+
+            if (!isValid) {
+                Alert.alert('Invalid Code', 'This invite code was not found. Please check and try again.');
+                return;
+            }
+
+            // Upgrade landlover to nomad
+            const { data: { user } } = await supabase.auth.getUser();
+            if (!user) return;
+
+            await supabase
+                .from('profiles')
+                .update({ user_type: 'nomad', is_verified: true })
+                .eq('id', user.id);
+
+            Alert.alert(
+                'Welcome to the Nomads! 🚐',
+                `You're now a verified nomad! You can set your route and share your invite code.`,
+                [{ text: 'Awesome!', onPress: () => fetchProfile() }]
+            );
+            setVerifyMode('idle');
+            setManualCode('');
+        } catch (err) {
+            Alert.alert('Error', 'Something went wrong. Please try again.');
+        } finally {
+            setValidatingCode(false);
+        }
+    };
+
+    const handleBarCodeScanned = ({ data }: { type: string; data: string }) => {
+        setScanned(true);
+        validateInviteCode(data);
+    };
+
+    const openScanner = async () => {
+        const { status } = await Camera.requestCameraPermissionsAsync();
+        setHasCameraPermission(status === 'granted');
+        if (status === 'granted') {
+            setVerifyMode('scanner');
+        } else {
+            setVerifyMode('manual');
+            Alert.alert('Camera not available', 'Please enter the code manually.');
+        }
+    };
+
+
+
     const [routeCoordinates, setRouteCoordinates] = useState<{ latitude: number, longitude: number }[]>([]);
 
     useEffect(() => {
@@ -176,15 +292,6 @@ export default function MyProfileScreen() {
                     setRouteCoordinates(path);
                 }
             }
-            // The following lines were added based on the user's instruction.
-            // Note: The original `map` function was already correctly closed.
-            // This `});` might be a misplaced closing bracket from another context.
-            // The `setConversations` call is also new and its context is unclear.
-            // Applying it literally as requested, assuming it's intended for this scope.
-            // If this causes a syntax error or logical issue, please provide more context.
-            // }); // This line is commented out as it would cause a syntax error.
-            // setConversations(formatted); // This line is commented out as 'formatted' and 'setConversations' are not defined in this scope.
-
         } catch (error) {
             console.warn("Error fetching profile route:", error);
         }
@@ -199,7 +306,6 @@ export default function MyProfileScreen() {
                 animated: false
             });
 
-            // Add a slight pitch (angle) for a 3D effect
             setTimeout(() => {
                 if (mapRef.current) {
                     mapRef.current.animateCamera({ pitch: 45, heading: 0 }, { duration: 1000 });
@@ -214,104 +320,137 @@ export default function MyProfileScreen() {
 
     return (
         <View style={styles.container}>
-            {/* Header Title Overlay */}
-            <View style={styles.headerOverlay}>
-                <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
-                    <IconSymbol name="chevron.left" size={24} color="#333" />
-                </TouchableOpacity>
-                <Text style={styles.headerTitle}>Your Account</Text>
-                <View style={{ width: 24 }} />
-            </View>
 
             <ScrollView contentContainerStyle={styles.scrollContent}>
 
-                {/* Header Map with Curve */}
-                <View style={styles.mapContainer}>
-                    <MapView
-                        ref={mapRef}
-                        style={styles.map}
-                        provider={PROVIDER_GOOGLE}
-                        initialRegion={{
-                            latitude: profile?.latitude || 46.0569, // Default to Ljubljana
-                            longitude: profile?.longitude || 14.5058,
-                            latitudeDelta: profile?.route_data?.length > 1 ? 15.0 : 0.4,
-                            longitudeDelta: profile?.route_data?.length > 1 ? 15.0 : 0.4,
-                        }}
-                        scrollEnabled={false}
-                        zoomEnabled={false}
-                        onPress={() => navigation.navigate('RoutePreviewScreen', { userId: profile?.id })}
-                    >
-                        {/* Render Route if available */}
-                        {profile?.route_data && profile.route_data.length > 1 && (
-                            <Polyline
-                                coordinates={routeCoordinates.length > 0 ? routeCoordinates : profile.route_data.map((p: any) => ({ latitude: p.lat, longitude: p.lng }))}
-                                strokeColor="#4d73ba"
-                                strokeWidth={3}
-                            // lineDashPattern={[5, 5]} // Removed dash for solid road line
-                            />
-                        )}
-
-                        {/* Render Markers for Route */}
-                        {profile?.route_data && profile.route_data.map((p: any, i: number) => (
-                            <Marker
-                                key={i}
-                                coordinate={{ latitude: p.lat, longitude: p.lng }}
-                                anchor={{ x: 0.5, y: 0.5 }}
-                            >
-                                <View style={styles.markerDot} />
-                            </Marker>
-                        ))}
-
-                        {/* Fallback Mock Data if no route */}
-                        {!profile?.route_data && (
-                            <>
+                {/* Header Map with Curve — only for nomads with route data */}
+                {isNomad ? (
+                    <View style={styles.mapContainer}>
+                        <MapView
+                            ref={mapRef}
+                            style={styles.map}
+                            provider={PROVIDER_GOOGLE}
+                            initialRegion={{
+                                latitude: profile?.latitude || 46.0569,
+                                longitude: profile?.longitude || 14.5058,
+                                latitudeDelta: profile?.route_data?.length > 1 ? 15.0 : 0.4,
+                                longitudeDelta: profile?.route_data?.length > 1 ? 15.0 : 0.4,
+                            }}
+                            scrollEnabled={false}
+                            zoomEnabled={false}
+                            onPress={() => navigation.navigate('RoutePreviewScreen', { userId: profile?.id })}
+                        >
+                            {profile?.route_data && profile.route_data.length > 1 && (
                                 <Polyline
-                                    coordinates={MOCK_PATH}
+                                    coordinates={routeCoordinates.length > 0 ? routeCoordinates : profile.route_data.map((p: any) => ({ latitude: p.lat, longitude: p.lng }))}
                                     strokeColor="#4d73ba"
                                     strokeWidth={3}
-                                    lineDashPattern={[5, 5]}
                                 />
-                                <Marker coordinate={MOCK_PATH[0]}>
+                            )}
+                            {profile?.route_data && profile.route_data.map((p: any, i: number) => (
+                                <Marker
+                                    key={i}
+                                    coordinate={{ latitude: p.lat, longitude: p.lng }}
+                                    anchor={{ x: 0.5, y: 0.5 }}
+                                >
                                     <View style={styles.markerDot} />
                                 </Marker>
-                                <Marker coordinate={MOCK_PATH[1]}>
-                                    <IconSymbol name="mappin.circle.fill" size={30} color="#4d73ba" />
-                                </Marker>
-                            </>
-                        )}
-                    </MapView>
+                            ))}
+                            {!profile?.route_data && (
+                                <>
+                                    <Polyline
+                                        coordinates={MOCK_PATH}
+                                        strokeColor="#4d73ba"
+                                        strokeWidth={3}
+                                        lineDashPattern={[5, 5]}
+                                    />
+                                    <Marker coordinate={MOCK_PATH[0]}>
+                                        <View style={styles.markerDot} />
+                                    </Marker>
+                                    <Marker coordinate={MOCK_PATH[1]}>
+                                        <IconSymbol name="mappin.circle.fill" size={30} color="#4d73ba" />
+                                    </Marker>
+                                </>
+                            )}
+                        </MapView>
 
-                    {/* SVG Curve Mask Overlay */}
-                    <View style={styles.curveContainer}>
-                        <Svg height="100%" width="100%" viewBox="0 0 1340 320" style={styles.svgCurve}>
-                            <Path
-                                fill="#FDFDFD"
-                                d="M0,80 Q720,300 1440,80 L1440,400 L0,400 Z"
-                            />
-                        </Svg>
-                    </View>
+                        <View style={styles.curveContainer}>
+                            <Svg height="100%" width="100%" viewBox="0 0 1340 320" style={styles.svgCurve}>
+                                <Path
+                                    fill="#FDFDFD"
+                                    d="M0,80 Q720,300 1440,80 L1440,400 L0,400 Z"
+                                />
+                            </Svg>
+                        </View>
 
-                    <View style={styles.avatarContainer}>
-                        {profile?.avatar_url ? (
-                            <Image source={{ uri: profile.avatar_url }} style={styles.avatar} />
-                        ) : (
-                            <Image source={{ uri: 'https://images.unsplash.com/photo-1570295999919-56ceb5ecca61?ixlib=rb-1.2.1&auto=format&fit=crop&w=500&q=80' }} style={styles.avatar} />
-                        )}
-                        <TouchableOpacity
-                            style={styles.editIcon}
-                            onPress={() => navigation.navigate('EditProfileScreen')}
-                        >
-                            <IconSymbol name="pencil" size={16} color="#4d73ba" />
-                        </TouchableOpacity>
+                        <View style={styles.avatarContainer}>
+                            {profile?.avatar_url ? (
+                                <Image source={{ uri: profile.avatar_url }} style={styles.avatar} />
+                            ) : (
+                                <Image source={{ uri: 'https://images.unsplash.com/photo-1570295999919-56ceb5ecca61?ixlib=rb-1.2.1&auto=format&fit=crop&w=500&q=80' }} style={styles.avatar} />
+                            )}
+                            <TouchableOpacity
+                                style={styles.editIcon}
+                                onPress={() => navigation.navigate('EditProfileScreen')}
+                            >
+                                <IconSymbol name="pencil" size={16} color="#4d73ba" />
+                            </TouchableOpacity>
+                        </View>
                     </View>
-                </View>
+                ) : (
+                    /* Landlover: no map, just avatar with colored header */
+                    <View style={styles.landloverHeader}>
+                        <View style={styles.avatarContainerLandlover}>
+                            {profile?.avatar_url ? (
+                                <Image source={{ uri: profile.avatar_url }} style={styles.avatar} />
+                            ) : (
+                                <Image source={{ uri: 'https://images.unsplash.com/photo-1570295999919-56ceb5ecca61?ixlib=rb-1.2.1&auto=format&fit=crop&w=500&q=80' }} style={styles.avatar} />
+                            )}
+                            <TouchableOpacity
+                                style={styles.editIcon}
+                                onPress={() => navigation.navigate('EditProfileScreen')}
+                            >
+                                <IconSymbol name="pencil" size={16} color="#4d73ba" />
+                            </TouchableOpacity>
+                        </View>
+                    </View>
+                )}
 
                 {/* Profile Info */}
                 <View style={styles.infoContainer}>
                     <Text style={styles.name}>{profile?.full_name || 'Johnny Bravo'}</Text>
-                    <Text style={styles.location}>
-                        <IconSymbol name="mappin.and.ellipse" size={14} color="#999" /> {profile?.route_start || 'Jeruzalem, Slovenia'} {profile?.route_end ? `→ ${profile.route_end}` : ''}
-                    </Text>
+
+                    {/* User type badge */}
+                    <View style={[styles.userTypeBadge, isLandlover ? styles.landloverTypeBadge : styles.nomadTypeBadge]}>
+                        <Ionicons
+                            name={isLandlover ? 'home' : 'compass'}
+                            size={14}
+                            color={isLandlover ? '#4d73ba' : '#34C759'}
+                        />
+                        <Text style={[styles.userTypeBadgeText, { color: isLandlover ? '#4d73ba' : '#34C759' }]}>
+                            {isLandlover ? 'Landlover' : 'Nomad'}
+                        </Text>
+                    </View>
+
+                    {isNomad && (
+                        <View style={styles.locationRow}>
+                            <IconSymbol name="mappin.and.ellipse" size={14} color="#999" />
+                            <Text style={styles.location}>
+                                {profile?.route_data && profile.route_data.length > 0 ? (
+                                    profile.route_data.slice(0, 3).map((checkpoint: any, index: number) => (
+                                        <Text key={index}>
+                                            <Text style={index === 0 ? styles.currentLocation : styles.routeLocation}>
+                                                {checkpoint.name || checkpoint.city || 'Unknown'}
+                                            </Text>
+                                            {index < Math.min(profile.route_data.length - 1, 2) && <Text style={styles.routeLocation}> → </Text>}
+                                        </Text>
+                                    ))
+                                ) : (
+                                    <Text style={styles.routeLocation}>No route set</Text>
+                                )}
+                            </Text>
+                        </View>
+                    )}
 
                     <View style={styles.badges}>
                         {/* Verified Nomad Badge */}
@@ -334,48 +473,199 @@ export default function MyProfileScreen() {
                             </Text>
                         </View>
                     </View>
-
-
                 </View>
+
+                {/* ======================== */}
+                {/* NOMAD: Invite Code + QR  */}
+                {/* ======================== */}
+                {isNomad && profile?.invite_code && profile?.is_verified && (
+                    <View style={styles.inviteCard}>
+                        <View style={styles.inviteHeader}>
+                            <Ionicons name="people-outline" size={20} color="#4d73ba" />
+                            <Text style={styles.inviteTitle}>Your Invite Code</Text>
+                        </View>
+                        <Text style={styles.inviteSubtitle}>Share with new nomads to verify them</Text>
+
+                        <View style={styles.codeRow}>
+                            <Text style={styles.codeText}>{profile.invite_code}</Text>
+                            <TouchableOpacity
+                                style={styles.copyBtn}
+                                onPress={async () => {
+                                    await Clipboard.setStringAsync(profile.invite_code);
+                                    Alert.alert('Copied!', 'Invite code copied to clipboard.');
+                                }}
+                            >
+                                <Ionicons name="copy-outline" size={18} color="#4d73ba" />
+                                <Text style={styles.copyBtnText}>Copy</Text>
+                            </TouchableOpacity>
+                        </View>
+
+                        <TouchableOpacity
+                            style={styles.qrToggle}
+                            onPress={() => setShowQR(!showQR)}
+                        >
+                            <Ionicons name={showQR ? "chevron-up" : "qr-code-outline"} size={16} color="#4d73ba" />
+                            <Text style={styles.qrToggleText}>{showQR ? 'Hide QR' : 'Show QR Code'}</Text>
+                        </TouchableOpacity>
+
+                        {showQR && (
+                            <View style={styles.qrContainer}>
+                                <QRCode value={profile.invite_code} size={160} backgroundColor="white" color="#333" />
+                                <Text style={styles.qrHint}>New users can scan this to get verified</Text>
+                            </View>
+                        )}
+                    </View>
+                )}
+
+                {/* ================================ */}
+                {/* LANDLOVER: Become a Nomad Card   */}
+                {/* ================================ */}
+                {isLandlover && (
+                    <View style={styles.becomeNomadCard}>
+                        <View style={styles.becomeNomadHeader}>
+                            <Ionicons name="compass-outline" size={24} color="#4d73ba" />
+                            <Text style={styles.becomeNomadTitle}>Join the Nomad Community</Text>
+                        </View>
+                        <Text style={styles.becomeNomadSubtitle}>
+                            Enter or scan an invite code to become a verified nomad and unlock route planning!
+                        </Text>
+
+                        {verifyMode === 'idle' && (
+                            <View style={styles.verifyActions}>
+                                <TouchableOpacity style={styles.scanQrBtn} onPress={openScanner}>
+                                    <Ionicons name="qr-code-outline" size={20} color="white" />
+                                    <Text style={styles.scanQrBtnText}>Scan QR Code</Text>
+                                </TouchableOpacity>
+                                <TouchableOpacity style={styles.enterCodeBtn} onPress={() => setVerifyMode('manual')}>
+                                    <Ionicons name="keypad-outline" size={20} color="#4d73ba" />
+                                    <Text style={styles.enterCodeBtnText}>Enter Code</Text>
+                                </TouchableOpacity>
+                            </View>
+                        )}
+
+                        {verifyMode === 'scanner' && hasCameraPermission && (
+                            <View style={styles.inlineScanner}>
+                                <CameraView
+                                    style={styles.cameraView}
+                                    onBarcodeScanned={scanned ? undefined : handleBarCodeScanned}
+                                    barcodeScannerSettings={{ barcodeTypes: ['qr'] }}
+                                />
+                                <View style={styles.scanOverlayInline}>
+                                    <View style={styles.scanFrameInline} />
+                                </View>
+                                <View style={styles.scannerBtns}>
+                                    {scanned && (
+                                        <TouchableOpacity style={styles.rescanBtnInline} onPress={() => setScanned(false)}>
+                                            <Ionicons name="refresh" size={16} color="white" />
+                                            <Text style={styles.rescanTextInline}>Scan Again</Text>
+                                        </TouchableOpacity>
+                                    )}
+                                    <TouchableOpacity onPress={() => setVerifyMode('idle')}>
+                                        <Text style={styles.cancelText}>Cancel</Text>
+                                    </TouchableOpacity>
+                                </View>
+                            </View>
+                        )}
+
+                        {verifyMode === 'manual' && (
+                            <View style={styles.manualEntry}>
+                                <TextInput
+                                    style={styles.codeInput}
+                                    placeholder="e.g. A1B2C3D4"
+                                    placeholderTextColor="#bbb"
+                                    value={manualCode}
+                                    onChangeText={(t) => setManualCode(t.toUpperCase())}
+                                    autoCapitalize="characters"
+                                    maxLength={8}
+                                    autoCorrect={false}
+                                />
+                                <View style={styles.manualBtns}>
+                                    <TouchableOpacity
+                                        style={[styles.verifyCodeBtn, (!manualCode.trim() || validatingCode) && { opacity: 0.5 }]}
+                                        onPress={() => validateInviteCode(manualCode)}
+                                        disabled={!manualCode.trim() || validatingCode}
+                                    >
+                                        <Text style={styles.verifyCodeBtnText}>
+                                            {validatingCode ? 'Verifying...' : 'Verify'}
+                                        </Text>
+                                    </TouchableOpacity>
+                                    <TouchableOpacity onPress={() => { setVerifyMode('idle'); setManualCode(''); }}>
+                                        <Text style={styles.cancelText}>Cancel</Text>
+                                    </TouchableOpacity>
+                                </View>
+                            </View>
+                        )}
+                    </View>
+                )}
+
+
 
                 {/* Tabs */}
                 <View style={styles.tabsContainer}>
                     {['Social', 'Groups', 'Builders'].map(tab => (
                         <TouchableOpacity key={tab} onPress={() => setActiveTab(tab)} style={[styles.tab, activeTab === tab && styles.activeTab]}>
                             <Text style={[styles.tabText, activeTab === tab && styles.activeTabText]}>{tab}</Text>
+                            {activeTab === tab && <View style={styles.activeLine} />}
                         </TouchableOpacity>
                     ))}
                 </View>
 
-                <View style={styles.content}>
+                <View style={styles.contentArea}>
                     <View style={styles.sectionHeader}>
                         <IconSymbol name="clock.arrow.circlepath" size={20} color="#999" />
                         <Text style={styles.sectionTitle}> Your Activity</Text>
                     </View>
 
-                    {/* Dynamic Activity Cards or Empty State */}
                     {activeTab === 'Groups' && (
                         userEvents.length > 0 ? (
                             userEvents.map(event => (
-                                <View key={event.id} style={styles.activityCard}>
-                                    <View style={styles.cardHeaderRow}>
-                                        <Text style={styles.activityTitle}>{event.title}</Text>
-                                        <TouchableOpacity
-                                            style={styles.actionButton}
-                                            onPress={() => event.isCustom ? handleDeleteEvent(event.id) : handleExitGroup(event.id)}
-                                        >
-                                            <Ionicons
-                                                name={event.isCustom ? "trash-outline" : "exit-outline"}
-                                                size={20}
-                                                color={event.isCustom ? "#FF3B30" : "#5B7FFF"}
-                                            />
-                                        </TouchableOpacity>
-                                    </View>
-                                    <Text style={styles.activityDesc} numberOfLines={2}>{event.description}</Text>
-                                    <View style={styles.activityFooter}>
-                                        <View style={styles.timeTag}>
-                                            <IconSymbol name="clock" size={14} color="#4d73ba" />
-                                            <Text style={styles.timeText}> {event.time}</Text>
+                                <View key={event.id} style={styles.eventCard}>
+                                    <ExpoImage source={require('@/assets/images/activity.jpg')} style={styles.eventImage} />
+                                    <View style={styles.eventContent}>
+                                        <View style={styles.titleRow}>
+                                            <Text style={styles.eventTitle}>{event.title}</Text>
+                                            {event.category && (
+                                                <View style={styles.categoryBadgeSmall}>
+                                                    <Text style={styles.categoryBadgeTextSmall}>{event.category}</Text>
+                                                </View>
+                                            )}
+                                        </View>
+                                        <Text style={styles.eventDesc} numberOfLines={2}>{event.description}</Text>
+
+                                        <View style={styles.infoRow}>
+                                            <Ionicons name="time-outline" size={16} color="#5B7FFF" />
+                                            <Text style={styles.infoText}>{event.time}</Text>
+                                        </View>
+                                        {event.location && (
+                                            <View style={styles.infoRow}>
+                                                <Ionicons name="location-outline" size={16} color="#5B7FFF" />
+                                                <Text style={styles.infoText}>{event.location}</Text>
+                                            </View>
+                                        )}
+
+                                        <View style={styles.actionButtons}>
+                                            <TouchableOpacity
+                                                style={[styles.actionBtn, styles.greyActionButton]}
+                                                onPress={() => event.isCustom ? handleDeleteEvent(event.id) : handleExitGroup(event.id)}
+                                            >
+                                                <Ionicons
+                                                    name={event.isCustom ? "trash-outline" : "exit-outline"}
+                                                    size={18}
+                                                    color="white"
+                                                />
+                                                <Text style={styles.actionBtnText}>{event.isCustom ? 'Delete' : 'Leave'}</Text>
+                                            </TouchableOpacity>
+                                            <TouchableOpacity
+                                                style={[styles.actionBtn, styles.chatActionButton]}
+                                                onPress={() => handleEventChat(event)}
+                                            >
+                                                <Ionicons
+                                                    name="chatbubbles-outline"
+                                                    size={18}
+                                                    color="white"
+                                                />
+                                                <Text style={styles.actionBtnText}>Chat</Text>
+                                            </TouchableOpacity>
                                         </View>
                                     </View>
                                 </View>
@@ -440,14 +730,13 @@ export default function MyProfileScreen() {
                         </View>
                     )}
 
-
                     {activeTab === 'Builders' && (
                         <View style={styles.activityCard}>
                             {myBuilder ? (
                                 <View>
                                     <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 15 }}>
                                         <Text style={styles.activityTitle}>{myBuilder.business_name || myBuilder.name || 'My Builder Profile'}</Text>
-                                        <TouchableOpacity onPress={() => navigation.navigate('EditBuilderProfile')}>
+                                        <TouchableOpacity onPress={() => navigation.navigate('BuilderRegistration')}>
                                             <IconSymbol name="pencil.circle.fill" size={24} color="#4d73ba" />
                                         </TouchableOpacity>
                                     </View>
@@ -475,58 +764,24 @@ export default function MyProfileScreen() {
                                     <Text style={{ color: '#666', marginTop: 10, textAlign: 'center' }}>
                                         You don't have a builder profile yet.
                                     </Text>
-                                    <TouchableOpacity style={[styles.saveBtn, { marginTop: 20, width: '100%' }]} onPress={() => navigation.navigate('BecomeBuilder')}>
+                                    <TouchableOpacity style={[styles.saveBtn, { marginTop: 20, width: '100%' }]} onPress={() => navigation.navigate('BuilderRegistration')}>
                                         <Text style={styles.saveBtnText}>Become a Builder</Text>
                                     </TouchableOpacity>
                                 </View>
                             )}
                         </View>
                     )}
-
                 </View>
-
-                {/* Invite Code Sharing */}
-                {
-                    profile?.invite_code && (
-                        <View style={styles.inviteCard}>
-                            <View style={styles.inviteHeader}>
-                                <Ionicons name="people-outline" size={20} color="#4d73ba" />
-                                <Text style={styles.inviteTitle}>Your Invite Code</Text>
-                            </View>
-                            <Text style={styles.inviteSubtitle}>Share with new nomads to verify them</Text>
-
-                            <View style={styles.codeRow}>
-                                <Text style={styles.codeText}>{profile.invite_code}</Text>
-                                <TouchableOpacity
-                                    style={styles.copyBtn}
-                                    onPress={async () => {
-                                        await Clipboard.setStringAsync(profile.invite_code);
-                                        Alert.alert('Copied!', 'Invite code copied to clipboard.');
-                                    }}
-                                >
-                                    <Ionicons name="copy-outline" size={18} color="#4d73ba" />
-                                    <Text style={styles.copyBtnText}>Copy</Text>
-                                </TouchableOpacity>
-                            </View>
-
-                            <TouchableOpacity
-                                style={styles.qrToggle}
-                                onPress={() => setShowQR(!showQR)}
-                            >
-                                <Ionicons name={showQR ? "chevron-up" : "qr-code-outline"} size={16} color="#4d73ba" />
-                                <Text style={styles.qrToggleText}>{showQR ? 'Hide QR' : 'Show QR Code'}</Text>
-                            </TouchableOpacity>
-
-                            {showQR && (
-                                <View style={styles.qrContainer}>
-                                    <QRCode value={profile.invite_code} size={160} backgroundColor="white" color="#333" />
-                                    <Text style={styles.qrHint}>New users can scan this to get verified</Text>
-                                </View>
-                            )}
-                        </View>
-                    )
-                }
             </ScrollView >
+
+            {/* Fixed Header */}
+            <View style={styles.headerOverlay}>
+                <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
+                    <Ionicons name="arrow-back" size={24} color="#333" />
+                </TouchableOpacity>
+                <Text style={styles.headerTitle}>Your Account</Text>
+                <View style={{ width: 24 }} />
+            </View>
         </View >
     );
 }
@@ -544,8 +799,33 @@ const styles = StyleSheet.create({
     mapContainer: { height: 320, width: '100%', position: 'relative' },
     map: { ...StyleSheet.absoluteFillObject },
     curveContainer: { position: 'absolute', bottom: 0, width: '100%', height: 100, justifyContent: 'flex-end' },
-    svgCurve: { position: 'absolute', bottom: -1 }, // Shift down to cover gap
+    svgCurve: { position: 'absolute', bottom: -1 },
     markerDot: { width: 10, height: 10, borderRadius: 5, backgroundColor: '#4d73ba' },
+
+    // Landlover header (no map)
+    landloverHeader: {
+        height: 220,
+        backgroundColor: '#16213e',
+        alignItems: 'center',
+        justifyContent: 'flex-end',
+        paddingBottom: 10,
+    },
+    avatarContainerLandlover: {
+        width: 140,
+        height: 140,
+        borderRadius: 140,
+        backgroundColor: '#FDFDFD',
+        padding: 4,
+        elevation: 10,
+        shadowColor: "#000",
+        shadowOffset: { width: 0, height: 5 },
+        shadowOpacity: 0.2,
+        shadowRadius: 5,
+        alignItems: 'center',
+        justifyContent: 'center',
+        borderWidth: 1,
+        borderColor: '#eee',
+    },
 
     avatarContainer: {
         position: 'absolute',
@@ -588,6 +868,16 @@ const styles = StyleSheet.create({
     infoContainer: { alignItems: 'center', marginTop: 10 },
     name: { fontSize: 26, fontWeight: 'bold', color: '#222' },
     location: { fontSize: 14, color: 'gray', marginTop: 5 },
+
+    // User type badge
+    userTypeBadge: {
+        flexDirection: 'row', alignItems: 'center', gap: 5,
+        paddingHorizontal: 12, paddingVertical: 4, borderRadius: 20, marginTop: 6,
+    },
+    nomadTypeBadge: { backgroundColor: '#e8f8ed' },
+    landloverTypeBadge: { backgroundColor: '#eef0ff' },
+    userTypeBadgeText: { fontSize: 12, fontWeight: '600' },
+
     badges: { flexDirection: 'row', marginTop: 20, gap: 24, justifyContent: 'center' },
     badgeItem: { alignItems: 'center', gap: 4 },
     badgeLocked: { opacity: 0.4 },
@@ -602,6 +892,7 @@ const styles = StyleSheet.create({
     badgeLabel: { fontSize: 11, fontWeight: '600', color: '#555' },
     badgeLabelDimmed: { color: '#bbb' },
 
+    // Invite code card (nomad)
     inviteCard: {
         marginTop: 20, marginHorizontal: 20, backgroundColor: 'white', borderRadius: 16,
         padding: 18, elevation: 2, shadowColor: '#000', shadowOpacity: 0.05, shadowRadius: 8,
@@ -618,15 +909,83 @@ const styles = StyleSheet.create({
     qrContainer: { alignItems: 'center', marginTop: 10, padding: 15, backgroundColor: 'white', borderRadius: 12, borderWidth: 1, borderColor: '#eee' },
     qrHint: { fontSize: 11, color: '#aaa', marginTop: 10 },
 
-    tabsContainer: {
-        flexDirection: 'row', paddingHorizontal: 40, marginTop: 30, borderBottomWidth: 1, borderBottomColor: '#eee'
+    // Become Nomad card (landlover)
+    becomeNomadCard: {
+        marginTop: 20, marginHorizontal: 20, backgroundColor: 'white', borderRadius: 16,
+        padding: 18, elevation: 2, shadowColor: '#000', shadowOpacity: 0.05, shadowRadius: 8,
+        borderWidth: 1, borderColor: '#eef0ff',
     },
-    tab: { paddingVertical: 15, paddingHorizontal: 10, marginRight: 20 },
-    activeTab: { borderBottomWidth: 2, borderBottomColor: '#4d73ba' },
-    tabText: { fontSize: 16, color: '#999', fontWeight: '600' },
-    activeTabText: { color: '#333' },
+    becomeNomadHeader: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+    becomeNomadTitle: { fontSize: 16, fontWeight: 'bold', color: '#333' },
+    becomeNomadSubtitle: { fontSize: 13, color: '#888', marginTop: 6, marginBottom: 16, lineHeight: 19 },
+    verifyActions: { gap: 10 },
+    scanQrBtn: {
+        flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8,
+        backgroundColor: '#4d73ba', paddingVertical: 14, borderRadius: 12,
+    },
+    scanQrBtnText: { color: 'white', fontWeight: 'bold', fontSize: 15 },
+    enterCodeBtn: {
+        flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8,
+        backgroundColor: '#eef0ff', paddingVertical: 14, borderRadius: 12,
+    },
+    enterCodeBtnText: { color: '#4d73ba', fontWeight: 'bold', fontSize: 15 },
 
-    content: { padding: 20 },
+    // Inline scanner
+    inlineScanner: { borderRadius: 12, overflow: 'hidden', marginTop: 8 },
+    cameraView: { width: '100%', height: 250 },
+    scanOverlayInline: { ...StyleSheet.absoluteFillObject, justifyContent: 'center', alignItems: 'center' },
+    scanFrameInline: { width: 180, height: 180, borderWidth: 2, borderColor: 'rgba(255,255,255,0.7)', borderRadius: 16 },
+    scannerBtns: { flexDirection: 'row', justifyContent: 'center', gap: 20, paddingVertical: 12 },
+    rescanBtnInline: { flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: '#4d73ba', paddingHorizontal: 16, paddingVertical: 8, borderRadius: 20 },
+    rescanTextInline: { color: 'white', fontWeight: '600', fontSize: 13 },
+    cancelText: { color: '#999', fontWeight: '600', fontSize: 14, paddingVertical: 8 },
+
+    // Manual code entry
+    manualEntry: { marginTop: 8 },
+    codeInput: {
+        backgroundColor: '#f5f5f5', borderRadius: 12, padding: 14, fontSize: 22,
+        fontWeight: 'bold', textAlign: 'center', letterSpacing: 4, color: '#333',
+        borderWidth: 1, borderColor: '#eee',
+    },
+    manualBtns: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 15, marginTop: 12 },
+    verifyCodeBtn: { backgroundColor: '#4d73ba', paddingHorizontal: 24, paddingVertical: 12, borderRadius: 12 },
+    verifyCodeBtnText: { color: 'white', fontWeight: 'bold', fontSize: 15 },
+
+
+
+    tabsContainer: {
+        flexDirection: 'row',
+        paddingHorizontal: 40,
+        marginTop: 30,
+        borderBottomWidth: 1,
+        borderBottomColor: '#eee',
+        gap: 30,
+    },
+    tab: {
+        paddingVertical: 15,
+        paddingHorizontal: 10,
+        position: 'relative',
+    },
+    activeTab: {},
+    tabText: {
+        fontSize: 18,
+        color: '#999',
+        fontWeight: '600'
+    },
+    activeTabText: {
+        color: '#333'
+    },
+    activeLine: {
+        position: 'absolute',
+        bottom: 0,
+        left: 0,
+        right: 0,
+        height: 3,
+        backgroundColor: '#5B7FFF',
+        borderRadius: 2,
+    },
+
+    contentArea: { padding: 20 },
     sectionHeader: { flexDirection: 'row', alignItems: 'center', marginBottom: 20, opacity: 0.6 },
     sectionTitle: { fontSize: 16, fontWeight: '600', marginLeft: 5 },
 
@@ -640,17 +999,6 @@ const styles = StyleSheet.create({
         shadowRadius: 10,
         marginBottom: 20
     },
-    cardHeaderRow: {
-        flexDirection: 'row',
-        justifyContent: 'space-between',
-        alignItems: 'flex-start',
-        marginBottom: 8,
-    },
-    actionButton: {
-        padding: 5,
-        marginTop: -5,
-        marginRight: -5,
-    },
     activityTitle: {
         fontSize: 20,
         fontWeight: 'bold',
@@ -659,12 +1007,6 @@ const styles = StyleSheet.create({
         marginRight: 10
     },
     activityDesc: { fontSize: 14, color: '#666', marginTop: 5, lineHeight: 20 },
-    activityFooter: { flexDirection: 'column', marginTop: 15, gap: 10 },
-    members: { flexDirection: 'row', alignItems: 'center' },
-    memberAvatar: { width: 24, height: 24, borderRadius: 12, marginRight: -8, borderWidth: 1, borderColor: 'white' },
-    memberCount: { fontSize: 12, color: '#aaa', marginLeft: 15 },
-    timeTag: { flexDirection: 'row', alignItems: 'center' },
-    timeText: { fontSize: 13, color: '#4d73ba', marginLeft: 5, fontWeight: '600' },
 
     // Social Tab Styles
     socialPrompt: { fontSize: 18, fontWeight: 'bold', color: '#333', marginBottom: 15 },
@@ -709,5 +1051,113 @@ const styles = StyleSheet.create({
         borderWidth: 1,
         borderColor: '#4d73ba'
     },
-    findFriendBtnText: { color: '#4d73ba', fontWeight: 'bold' }
+    findFriendBtnText: { color: '#4d73ba', fontWeight: 'bold' },
+
+    // Route Display Styles
+    locationRow: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 5,
+    },
+    currentLocation: {
+        color: '#5B7FFF',
+        fontSize: 14,
+        fontWeight: '600',
+    },
+    routeLocation: {
+        color: '#999',
+        fontSize: 14,
+    },
+
+    // Event Card Styles
+    eventCard: {
+        flexDirection: 'row',
+        backgroundColor: 'white',
+        borderRadius: 16,
+        padding: 12,
+        marginBottom: 20,
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.08,
+        shadowRadius: 8,
+        elevation: 3,
+        borderWidth: 1,
+        borderColor: '#f8f8f8',
+    },
+    eventImage: {
+        width: 110,
+        height: 150,
+        borderRadius: 12,
+        backgroundColor: '#ddd',
+    },
+    eventContent: {
+        flex: 1,
+        marginLeft: 15,
+        justifyContent: 'center',
+    },
+    titleRow: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        marginBottom: 8,
+    },
+    eventTitle: {
+        fontSize: 16,
+        fontWeight: 'bold',
+        color: '#1A1A1A',
+        flex: 1,
+    },
+    categoryBadgeSmall: {
+        backgroundColor: '#F0F0F8',
+        paddingHorizontal: 8,
+        paddingVertical: 2,
+        borderRadius: 8,
+        marginLeft: 8,
+    },
+    categoryBadgeTextSmall: {
+        fontSize: 10,
+        color: '#5B7FFF',
+        fontWeight: 'bold',
+    },
+    eventDesc: {
+        fontSize: 13,
+        color: '#8E8E93',
+        marginBottom: 12,
+        lineHeight: 20,
+    },
+    infoRow: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        marginBottom: 8,
+        gap: 6,
+    },
+    infoText: {
+        fontSize: 13,
+        color: '#666',
+        fontWeight: '500',
+    },
+    actionButtons: {
+        flexDirection: 'row',
+        marginTop: 12,
+        gap: 10,
+    },
+    actionBtn: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        paddingVertical: 10,
+        paddingHorizontal: 16,
+        borderRadius: 20,
+        gap: 6,
+    },
+    greyActionButton: {
+        backgroundColor: '#8E8E93',
+    },
+    chatActionButton: {
+        backgroundColor: '#5B7FFF',
+    },
+    actionBtnText: {
+        color: 'white',
+        fontSize: 13,
+        fontWeight: '600',
+    },
 });

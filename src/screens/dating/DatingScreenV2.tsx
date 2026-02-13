@@ -2,6 +2,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { View, StyleSheet, Dimensions, Text, TouchableOpacity, ActivityIndicator, Alert } from 'react-native';
 import { GestureDetector, Gesture, GestureHandlerRootView } from 'react-native-gesture-handler';
+import { Image as ExpoImage } from 'expo-image';
 import Animated, {
     useSharedValue,
     useAnimatedStyle,
@@ -16,6 +17,7 @@ import { supabase } from '../../lib/supabase';
 import { useRevenueCat } from '../../context/RevenueCatContext';
 import { IconSymbol } from '../../components/ui/IconSymbol';
 import { useNavigation } from '@react-navigation/native';
+import Ionicons from '@expo/vector-icons/Ionicons';
 
 const { width, height } = Dimensions.get('window');
 const SWIPE_THRESHOLD = width * 0.3;
@@ -55,16 +57,22 @@ export default function DatingScreenV2() {
             if (!user) return;
             setCurrentUser(user);
 
-            // Fetch current user profile for route data
+            // Fetch current user profile for route data + preferences
             const { data: myProfile } = await supabase
                 .from('profiles')
-                .select('route_data')
+                .select('route_data, user_type, gender, preferred_gender, wants_dating, show_landlovers_dating')
                 .eq('id', user.id)
                 .single();
 
             const myRoute = (myProfile?.route_data as any[]) || [];
             setUserRoute(myRoute);
             const referencePoint = myRoute.length > 0 ? myRoute[0] : null;
+
+            // My dating preferences
+            const myGender = myProfile?.gender || 'other';
+            const myPreferredGender = myProfile?.preferred_gender || 'everyone';
+            const showLandlovers = myProfile?.show_landlovers_dating !== false;
+            const isNomad = myProfile?.user_type !== 'landlover';
 
             // Get already-swiped IDs
             const { data: swipes } = await supabase
@@ -74,20 +82,50 @@ export default function DatingScreenV2() {
             const swipedIds = swipes?.map(s => s.swipee_id) || [];
 
             // Fetch profiles excluding self and already swiped
+            // Only show profiles that want to date
             let query = supabase
                 .from('profiles')
                 .select('*')
                 .neq('id', user.id);
 
+            // wants_dating must be true or NULL (legacy users default to true)
+            // Note: Postgres neq ignores NULLs, so we handle it on client or with better server filter
+            // For simplicity and legacy support, we'll fetch then filter more on client if needed
+            // but we'll try to exclude explicit 'false' seekers
+            query = query.or('wants_dating.eq.true,wants_dating.is.null');
+
             if (swipedIds.length > 0) {
-                const filterString = `(${swipedIds.map(id => `"${id}"`).join(',')})`;
-                query = query.filter('id', 'not.in', filterString);
+                query = query.not('id', 'in', `(${swipedIds.join(',')})`);
             }
 
-            const { data, error } = await query.limit(20);
+            // If nomad and doesn't want to see landlovers, filter them out
+            if (isNomad && !showLandlovers) {
+                query = query.neq('user_type', 'landlover');
+            }
+
+            // Filter by preferred gender (if not 'everyone')
+            if (myPreferredGender && myPreferredGender !== 'everyone') {
+                // If they have a preference, match strictly. 
+                // Note: This matches NULLs out too, which is why demo profiles weren't showing up.
+                query = query.eq('gender', myPreferredGender);
+            }
+
+            const { data, error } = await query.limit(40); // Fetch more to allow for filtering
             if (error) throw error;
 
-            const formatted = data?.map(p => {
+            // Client-side filter: only show profiles whose preferred_gender matches my gender (or everyone)
+            const filtered = data?.filter(p => {
+                // 1. Double check they want dating (fallback for NULLs)
+                if (p.wants_dating === false) return false;
+
+                // 2. Bidirectional check: Do they want someone of my gender?
+                const theirPref = p.preferred_gender || 'everyone';
+                if (theirPref !== 'everyone' && theirPref !== myGender) return false;
+
+                return true;
+            }) || [];
+
+            const formatted = filtered.map(p => {
                 let distanceStr = 'Nearby';
                 const pRoute = p.route_data;
                 if (referencePoint && pRoute && Array.isArray(pRoute) && pRoute.length > 0) {
@@ -107,7 +145,7 @@ export default function DatingScreenV2() {
                     distance: distanceStr,
                     route_data: p.route_data || [],
                 };
-            }) || [];
+            });
 
             setProfiles(formatted);
             setCurrentIndex(0);
@@ -241,10 +279,16 @@ export default function DatingScreenV2() {
 
     if (currentIndex >= profiles.length) {
         return (
-            <View style={styles.center}>
-                <Text>No more profiles!</Text>
-                <TouchableOpacity onPress={loadProfiles}>
-                    <Text style={{ color: 'blue', marginTop: 10 }}>Refresh</Text>
+            <View style={styles.emptyContainer}>
+                <View style={styles.emptyIconContainer}>
+                    <Ionicons name="people-outline" size={80} color="#DDD" />
+                </View>
+                <Text style={styles.emptyTitle}>No more profiles!</Text>
+                <Text style={styles.emptySubtext}>No more profiles nearby at the moment.</Text>
+
+                <TouchableOpacity style={styles.refreshButton} onPress={loadProfiles}>
+                    <Ionicons name="refresh" size={20} color="white" style={{ marginRight: 8 }} />
+                    <Text style={styles.refreshButtonText}>Refresh</Text>
                 </TouchableOpacity>
             </View>
         );
@@ -254,7 +298,7 @@ export default function DatingScreenV2() {
     const nextProfile = profiles[currentIndex + 1];
 
     const openProfile = (profile: any) => {
-        navigation.navigate('ProfileDetail', { profile });
+        navigation.navigate('ProfileDetail', { profile, myRouteData: userRoute });
     };
 
     return (
@@ -306,12 +350,52 @@ export default function DatingScreenV2() {
 const styles = StyleSheet.create({
     container: {
         flex: 1,
-        backgroundColor: '#F2F2F7',
+        backgroundColor: 'white',
     },
     center: {
         flex: 1,
         justifyContent: 'center',
         alignItems: 'center',
+    },
+    emptyContainer: {
+        flex: 1,
+        justifyContent: 'center',
+        alignItems: 'center',
+        backgroundColor: 'white',
+        paddingHorizontal: 40,
+    },
+    emptyIconContainer: {
+        marginBottom: 20,
+    },
+    emptyTitle: {
+        fontSize: 24,
+        fontWeight: 'bold',
+        color: '#333',
+        marginBottom: 10,
+    },
+    emptySubtext: {
+        fontSize: 16,
+        color: '#666',
+        textAlign: 'center',
+        marginBottom: 30,
+    },
+    refreshButton: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        backgroundColor: '#5B7FFF', // Updated violet color
+        paddingVertical: 12,
+        paddingHorizontal: 25,
+        borderRadius: 25,
+        shadowColor: '#5B7FFF',
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.3,
+        shadowRadius: 4,
+        elevation: 5,
+    },
+    refreshButtonText: {
+        color: 'white',
+        fontWeight: 'bold',
+        fontSize: 16,
     },
     cardsContainer: {
         flex: 1,
@@ -354,5 +438,50 @@ const styles = StyleSheet.create({
     },
     likeButton: {
         // color handled by icon
+    },
+    backgroundImage: {
+        position: 'absolute',
+        width: '100%',
+        height: '100%',
+        opacity: 0.8,
+    },
+    emptyStateOverlay: {
+        flex: 1,
+        justifyContent: 'center',
+        alignItems: 'center',
+        backgroundColor: 'rgba(0,0,0,0.5)',
+        width: '100%',
+        padding: 20,
+    },
+    emptyStateTitle: {
+        fontSize: 24,
+        fontWeight: 'bold',
+        color: '#fff',
+        marginTop: 20,
+        textAlign: 'center',
+    },
+    emptyStateText: {
+        fontSize: 16,
+        color: 'rgba(255,255,255,0.9)',
+        textAlign: 'center',
+        marginTop: 10,
+        lineHeight: 24,
+        marginBottom: 30,
+    },
+    actionBtn: {
+        backgroundColor: '#4d73ba',
+        paddingHorizontal: 30,
+        paddingVertical: 15,
+        borderRadius: 25,
+        elevation: 5,
+        shadowColor: "#000",
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.25,
+        shadowRadius: 3.84,
+    },
+    actionBtnText: {
+        color: '#fff',
+        fontSize: 16,
+        fontWeight: 'bold',
     },
 });

@@ -152,7 +152,7 @@ const RootStack = createNativeStackNavigator({
     },
     BuilderRegistration: {
       screen: require('../screens/builders/BuilderRegistrationScreen').default,
-      options: { title: 'Become a Builder' },
+      options: { headerShown: false },
     },
   },
 });

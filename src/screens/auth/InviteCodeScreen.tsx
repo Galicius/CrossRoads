@@ -6,6 +6,9 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { supabase } from '@/lib/supabase';
 import Ionicons from '@expo/vector-icons/Ionicons';
 
+// Default invite code for testing/MVP
+const DEFAULT_INVITE_CODE = 'A1B2C3D4';
+
 export default function InviteCodeScreen() {
     const [hasPermission, setHasPermission] = useState<boolean | null>(null);
     const [scanned, setScanned] = useState(false);
@@ -41,6 +44,27 @@ export default function InviteCodeScreen() {
                 return;
             }
 
+            // Check against default hardcoded code first
+            if (trimmed === DEFAULT_INVITE_CODE) {
+                Alert.alert(
+                    'Code Verified! ✓',
+                    'Welcome to the Nomad community! You\'ll be verified once you create your account.',
+                    [
+                        {
+                            text: 'Continue to Sign Up',
+                            onPress: () => {
+                                navigation.replace('Auth', {
+                                    invitedBy: null, // Don't pass string to UUID column
+                                    userType: 'nomad',
+                                    isDefaultInvite: true // Track that it was still a valid invite
+                                });
+                            },
+                        },
+                    ]
+                );
+                return;
+            }
+
             // Look up the invite code in profiles
             const { data: inviter, error } = await supabase
                 .from('profiles')
@@ -61,7 +85,10 @@ export default function InviteCodeScreen() {
                         text: 'Continue to Sign Up',
                         onPress: () => {
                             // Pass inviter info to Auth screen
-                            navigation.replace('Auth', { invitedBy: inviter.id });
+                            navigation.replace('Auth', {
+                                invitedBy: inviter.id,
+                                userType: 'nomad',
+                            });
                         },
                     },
                 ]

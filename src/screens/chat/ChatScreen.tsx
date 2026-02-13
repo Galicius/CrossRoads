@@ -6,12 +6,19 @@ import Ionicons from '@expo/vector-icons/Ionicons';
 import { supabase } from '../../lib/supabase';
 import { IconSymbol } from '@/components/ui/IconSymbol';
 
-type ChatScreenRouteProp = RouteProp<{ ChatDetail: { chatId: string; otherUserName: string } }, 'ChatDetail'>;
+type ChatScreenRouteProp = RouteProp<{
+    ChatDetail: {
+        chatId: string;
+        otherUserName: string;
+        otherUserAvatar?: string | null;
+        isGroup?: boolean;
+    }
+}, 'ChatDetail'>;
 
 export default function ChatScreen() {
     const route = useRoute<ChatScreenRouteProp>();
     const navigation = useNavigation();
-    const { chatId, otherUserName } = route.params || {};
+    const { chatId, otherUserName, otherUserAvatar, isGroup } = route.params || {};
 
     const [messages, setMessages] = useState<any[]>([]);
     const [text, setText] = useState('');
@@ -139,10 +146,23 @@ export default function ChatScreen() {
 
                     <View style={styles.headerCenter}>
                         <View style={styles.headerAvatar}>
-                            <Image
-                                source={{ uri: 'https://images.unsplash.com/photo-1570295999919-56ceb5ecca61?ixlib=rb-1.2.1&auto=format&fit=crop&w=500&q=80' }}
-                                style={styles.headerAvatarImage}
-                            />
+                            {isGroup ? (
+                                <Image
+                                    source={require('@/assets/images/activity.jpg')}
+                                    style={styles.headerAvatarImage}
+                                />
+                            ) : (
+                                otherUserAvatar ? (
+                                    <Image
+                                        source={{ uri: otherUserAvatar }}
+                                        style={styles.headerAvatarImage}
+                                    />
+                                ) : (
+                                    <View style={[styles.headerAvatarImage, { alignItems: 'center', justifyContent: 'center', backgroundColor: '#E5E5EA' }]}>
+                                        <Ionicons name="person" size={20} color="#8E8E93" />
+                                    </View>
+                                )
+                            )}
                         </View>
                         <Text style={styles.headerTitle}>{otherUserName || 'Chat'}</Text>
                     </View>

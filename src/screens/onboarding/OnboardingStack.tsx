@@ -1,37 +1,55 @@
 import React, { useState } from 'react';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
-import { View, Text, StyleSheet, TouchableOpacity, TextInput, ScrollView, Image, Alert, ActivityIndicator } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, TextInput, ScrollView, Image, Alert, ActivityIndicator, Switch } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import * as ImagePicker from 'expo-image-picker';
 import { supabase } from '@/lib/supabase';
 import { IconSymbol } from '@/components/ui/IconSymbol';
 import { PlaceAutocomplete } from '@/components/ui/PlaceAutocomplete';
 import { RouteMap, Checkpoint } from '@/components/map/RouteMap';
+import { LinearGradient } from 'expo-linear-gradient';
+import Ionicons from '@expo/vector-icons/Ionicons';
 
 const THEME_COLOR = '#4d73ba';
+const GRADIENT_COLORS = ['#1a1a2e', '#16213e', '#0f3460'] as const;
 
 const ScreenWrapper = ({ children, title, step, totalSteps }: { children: React.ReactNode, title: string, step: number, totalSteps: number }) => (
     <View style={styles.container}>
-        <View style={styles.header}>
+        <LinearGradient
+            colors={['#0f3460', '#16213e', '#1a1a2e']}
+            style={styles.headerGradient}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 1 }}
+        >
             <Text style={styles.headerTitle}>{title}</Text>
             <View style={styles.progressBar}>
-                <View style={[styles.progressFill, { width: `${(step / totalSteps) * 100}%` }]} />
+                <LinearGradient
+                    colors={['#4d73ba', '#7B68EE']}
+                    start={{ x: 0, y: 0 }}
+                    end={{ x: 1, y: 0 }}
+                    style={[styles.progressFill, { width: `${(step / totalSteps) * 100}%` }]}
+                />
             </View>
             <Text style={styles.stepText}>Step {step} of {totalSteps}</Text>
-        </View>
+        </LinearGradient>
         <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
             {children}
         </ScrollView>
     </View>
 );
 
-function ProfileBasics() {
+function ProfileBasics({ route }: any) {
     const navigation = useNavigation<any>();
     const [firstName, setFirstName] = useState('');
     const [age, setAge] = useState('');
+    const [gender, setGender] = useState('');
+    const [wantsDating, setWantsDating] = useState(true);
+    const [preferredGender, setPreferredGender] = useState('everyone');
+    const userType = route?.params?.userType || 'nomad';
+    const totalSteps = userType === 'landlover' ? 4 : 6;
 
     return (
-        <ScreenWrapper title="About You" step={1} totalSteps={6}>
+        <ScreenWrapper title="About You" step={1} totalSteps={totalSteps}>
             <Text style={styles.label}>What's your name?</Text>
             <TextInput
                 style={styles.input}
@@ -51,9 +69,57 @@ function ProfileBasics() {
                 onChangeText={setAge}
             />
 
+            <Text style={styles.label}>Your gender</Text>
+            <View style={styles.options}>
+                {['Male', 'Female', 'Non-binary', 'Other'].map(opt => (
+                    <TouchableOpacity
+                        key={opt}
+                        style={[styles.optionChip, gender === opt && styles.selectedChip]}
+                        onPress={() => setGender(opt)}
+                    >
+                        <Text style={[styles.optionText, gender === opt && styles.selectedOptionText]}>{opt}</Text>
+                    </TouchableOpacity>
+                ))}
+            </View>
+
+            <View style={styles.toggleRow}>
+                <View style={{ flex: 1 }}>
+                    <Text style={styles.label}>Do you want to date?</Text>
+                    <Text style={styles.sublabel}>Enable to appear in dating cards</Text>
+                </View>
+                <Switch
+                    value={wantsDating}
+                    onValueChange={setWantsDating}
+                    trackColor={{ false: '#ddd', true: '#4d73ba' }}
+                    thumbColor={wantsDating ? '#fff' : '#f4f3f4'}
+                />
+            </View>
+
+            {wantsDating && (
+                <>
+                    <Text style={styles.label}>Who do you want to date?</Text>
+                    <View style={styles.options}>
+                        {['Male', 'Female', 'Everyone'].map(opt => (
+                            <TouchableOpacity
+                                key={opt}
+                                style={[styles.optionChip, preferredGender === opt.toLowerCase() && styles.selectedChip]}
+                                onPress={() => setPreferredGender(opt.toLowerCase())}
+                            >
+                                <Text style={[styles.optionText, preferredGender === opt.toLowerCase() && styles.selectedOptionText]}>{opt}</Text>
+                            </TouchableOpacity>
+                        ))}
+                    </View>
+                </>
+            )}
+
             <TouchableOpacity
                 style={[styles.nextBtn, (!firstName.trim()) && styles.disabledBtn]}
-                onPress={() => navigation.navigate('VanLifestyle', { firstName, age })}
+                onPress={() => {
+                    const nextScreen = userType === 'landlover' ? 'Interests' : 'VanLifestyle';
+                    navigation.navigate(nextScreen, {
+                        firstName, age, gender, wantsDating, preferredGender, userType
+                    });
+                }}
                 disabled={!firstName.trim()}
             >
                 <Text style={styles.nextBtnText}>Next Step</Text>
@@ -92,6 +158,9 @@ function Interests({ route }: any) {
     const navigation = useNavigation<any>();
     const [interests, setInterests] = useState<string[]>([]);
     const prevData = route.params || {};
+    const userType = prevData.userType || 'nomad';
+    const step = userType === 'landlover' ? 2 : 3;
+    const totalSteps = userType === 'landlover' ? 4 : 6;
 
     const toggleInterest = (opt: string) => {
         if (interests.includes(opt)) setInterests(interests.filter(i => i !== opt));
@@ -99,7 +168,7 @@ function Interests({ route }: any) {
     };
 
     return (
-        <ScreenWrapper title="Interests" step={3} totalSteps={6}>
+        <ScreenWrapper title="Interests" step={step} totalSteps={totalSteps}>
             <Text style={styles.label}>What defines you?</Text>
             <View style={styles.options}>
                 {['🧗 Climbing', '⛷️ Skiing', '🏄 Surfing', '📸 Photo', '🚐 Building'].map(opt => (
@@ -124,6 +193,9 @@ function Photos({ route }: any) {
     const prevData = route.params || {};
     const [images, setImages] = useState<string[]>([]);
     const [uploading, setUploading] = useState(false);
+    const userType = prevData.userType || 'nomad';
+    const step = userType === 'landlover' ? 3 : 4;
+    const totalSteps = userType === 'landlover' ? 4 : 6;
 
     const pickImage = async () => {
         const result = await ImagePicker.launchImageLibraryAsync({
@@ -175,8 +247,13 @@ function Photos({ route }: any) {
         setImages(images.filter(img => img !== urlToDelete));
     };
 
+    const getNextScreen = () => {
+        if (userType === 'landlover') return 'Intentions';
+        return 'RoutePlan';
+    };
+
     return (
-        <ScreenWrapper title="Photos" step={4} totalSteps={6}>
+        <ScreenWrapper title="Photos" step={step} totalSteps={totalSteps}>
             <Text style={styles.label}>Show off your rig & yourself!</Text>
             <Text style={styles.sublabel}>Add up to 6 photos. Your first photo will be your profile picture.</Text>
 
@@ -210,14 +287,14 @@ function Photos({ route }: any) {
 
             <TouchableOpacity
                 style={[styles.nextBtn, images.length === 0 && styles.disabledBtn]}
-                onPress={() => navigation.navigate('RoutePlan', { ...prevData, images })}
+                onPress={() => navigation.navigate(getNextScreen(), { ...prevData, images })}
                 disabled={images.length === 0}
             >
                 <Text style={styles.nextBtnText}>Next Step</Text>
             </TouchableOpacity>
             <TouchableOpacity
                 style={styles.skipBtn}
-                onPress={() => navigation.navigate('RoutePlan', { ...prevData, images: [] })}
+                onPress={() => navigation.navigate(getNextScreen(), { ...prevData, images: [] })}
             >
                 <Text style={styles.skipBtnText}>Skip for now</Text>
             </TouchableOpacity>
@@ -298,6 +375,9 @@ function Intentions({ route }: any) {
     const [intentions, setIntentions] = useState<string[]>([]);
     const [loading, setLoading] = useState(false);
     const prevData = route.params || {};
+    const userType = prevData.userType || 'nomad';
+    const step = userType === 'landlover' ? 4 : 6;
+    const totalSteps = userType === 'landlover' ? 4 : 6;
 
     const toggleIntention = (opt: string) => {
         if (intentions.includes(opt)) setIntentions(intentions.filter(i => i !== opt));
@@ -324,6 +404,12 @@ function Intentions({ route }: any) {
                 avatar_url: uploadedImages.length > 0 ? uploadedImages[0] : null,
                 images: uploadedImages,
                 route_data: routeCheckpoints,
+                user_type: userType,
+                gender: prevData.gender?.toLowerCase() || null,
+                preferred_gender: prevData.preferredGender || 'everyone',
+                wants_dating: prevData.wantsDating !== false,
+                show_landlovers_dating: true,
+                show_landlovers_social: true,
             };
 
             // If we have route checkpoints, set location from first checkpoint
@@ -347,7 +433,7 @@ function Intentions({ route }: any) {
     };
 
     return (
-        <ScreenWrapper title="Intentions" step={6} totalSteps={6}>
+        <ScreenWrapper title="Intentions" step={step} totalSteps={totalSteps}>
             <Text style={styles.label}>I'm looking for...</Text>
             <View style={styles.options}>
                 {['Dates', 'Friends', 'Build Help', 'Travel Buddy'].map(opt => (
@@ -361,11 +447,15 @@ function Intentions({ route }: any) {
                 ))}
             </View>
             <TouchableOpacity
-                style={[styles.nextBtn, { backgroundColor: '#333' }]}
+                style={[styles.nextBtn, styles.finishBtn]}
                 onPress={handleFinish}
                 disabled={loading}
             >
-                {loading ? <ActivityIndicator color="white" /> : <Text style={styles.nextBtnText}>Start Journey 🚐</Text>}
+                {loading ? <ActivityIndicator color="white" /> : (
+                    <Text style={styles.nextBtnText}>
+                        {userType === 'landlover' ? 'Start Exploring 🏠' : 'Start Journey 🚐'}
+                    </Text>
+                )}
             </TouchableOpacity>
         </ScreenWrapper>
     );
@@ -386,16 +476,32 @@ export default Stack;
 
 const styles = StyleSheet.create({
     container: { flex: 1, backgroundColor: '#f8f9fa' },
-    header: { padding: 20, paddingTop: 60, backgroundColor: 'white' },
-    headerTitle: { fontSize: 24, fontWeight: 'bold', color: THEME_COLOR },
-    progressBar: { height: 4, backgroundColor: '#eee', marginTop: 15, borderRadius: 2 },
-    progressFill: { height: '100%', backgroundColor: THEME_COLOR, borderRadius: 2 },
-    stepText: { fontSize: 12, color: '#aaa', marginTop: 8 },
+    headerGradient: {
+        padding: 20,
+        paddingTop: 60,
+    },
+    headerTitle: { fontSize: 24, fontWeight: 'bold', color: '#fff' },
+    progressBar: { height: 4, backgroundColor: 'rgba(255,255,255,0.2)', marginTop: 15, borderRadius: 2, overflow: 'hidden' },
+    progressFill: { height: '100%', borderRadius: 2 },
+    stepText: { fontSize: 12, color: 'rgba(255,255,255,0.6)', marginTop: 8 },
     content: { padding: 30, paddingBottom: 50 },
     label: { fontSize: 18, color: '#333', marginBottom: 8, fontWeight: '600' },
     sublabel: { fontSize: 14, color: '#888', marginBottom: 20, lineHeight: 20 },
     input: { backgroundColor: 'white', padding: 15, borderRadius: 10, marginBottom: 20, borderWidth: 1, borderColor: '#eee', fontSize: 16 },
-    nextBtn: { backgroundColor: THEME_COLOR, padding: 18, borderRadius: 30, alignItems: 'center', marginTop: 20, shadowColor: THEME_COLOR, shadowOpacity: 0.3, shadowRadius: 5, elevation: 5 },
+    nextBtn: {
+        backgroundColor: THEME_COLOR,
+        padding: 18,
+        borderRadius: 30,
+        alignItems: 'center',
+        marginTop: 20,
+        shadowColor: THEME_COLOR,
+        shadowOpacity: 0.3,
+        shadowRadius: 5,
+        elevation: 5,
+    },
+    finishBtn: {
+        backgroundColor: '#333',
+    },
     nextBtnText: { color: 'white', fontWeight: 'bold', fontSize: 16 },
     disabledBtn: { opacity: 0.5 },
     skipBtn: { alignItems: 'center', marginTop: 15 },
@@ -405,6 +511,16 @@ const styles = StyleSheet.create({
     selectedChip: { backgroundColor: THEME_COLOR, borderColor: THEME_COLOR },
     optionText: { color: '#4d73ba', fontWeight: '500' },
     selectedOptionText: { color: 'white' },
+    toggleRow: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        marginBottom: 20,
+        backgroundColor: 'white',
+        padding: 15,
+        borderRadius: 12,
+        borderWidth: 1,
+        borderColor: '#eee',
+    },
 
     // Gallery styles
     galleryGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 10, marginBottom: 10 },
